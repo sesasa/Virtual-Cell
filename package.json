@@ -1,0 +1,13 @@
+{
+  "name": "virtual-leaf-cell",
+  "private": true,
+  "description": "Narrated, simulated digital twin of a photosynthetic plant cell (2-D schematic + 3-D tour)",
+  "scripts": {
+    "build": "esbuild src3d/main.js --bundle --minify --format=iife --target=es2019 --outfile=dist/tour3d.js",
+    "watch": "esbuild src3d/main.js --bundle --format=iife --outfile=dist/tour3d.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "three": "^0.170.0"
+  }
+}

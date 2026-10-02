@@ -63,6 +63,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   border: 1px solid rgba(143, 220, 106, 0.4);
 }
 .chip-soft { background: transparent; color: var(--muted); border-color: var(--line-2); font-weight: 500; }
+.navlink { color: var(--leaf); font-weight: 600; text-decoration: none; border: 1px solid rgba(143,220,106,0.4); padding: 5px 12px; border-radius: 8px; }
+.navlink:hover { background: rgba(143,220,106,0.12); }
 .mode { display: flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
 .mode button { background: none; border: 0; padding: 6px 14px; cursor: pointer; color: var(--muted); font-weight: 600; }
 .mode button.on { background: var(--leaf); color: #0a1a0c; }
