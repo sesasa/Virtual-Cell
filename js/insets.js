@@ -9,7 +9,7 @@
   const FM = '"IBM Plex Mono", ui-monospace, monospace';
 
   function text(ctx, s, x, y, o = {}) {
-    ctx.font = `${o.weight || 500} ${o.size || 11}px ${o.mono ? FM : F}`;
+    ctx.font = `${o.weight || 500} ${Math.max(10, o.size || 11)}px ${o.mono ? FM : F}`;
     ctx.fillStyle = o.color || 'rgba(225,240,230,0.92)';
     ctx.textAlign = o.align || 'left';
     ctx.textBaseline = o.base || 'middle';
@@ -58,11 +58,33 @@
     }
   }
 
+  // Spotlight within an inset: dim everything except the current step.
+  function spot(ctx, targets, t) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    for (const g of targets) { ctx.moveTo(g.x + g.r, g.y); ctx.arc(g.x, g.y, g.r, 0, U.TAU, true); }
+    ctx.fillStyle = 'rgba(4,10,12,0.62)';
+    ctx.fill('evenodd');
+    for (const g of targets) {
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, U.TAU);
+      ctx.strokeStyle = `rgba(255,236,170,${0.55 + 0.3 * Math.sin(t * 3)})`;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   const insets = {};
 
   // ---------------------------------------------------------------- light reactions
   insets.thylakoid = {
     title: 'Thylakoid membrane · light reactions',
+    steps: {
+      antenna: [{ x: 62, y: 128, r: 46 }],
+      psii: [{ x: 92, y: 152, r: 52 }],
+      chain: [{ x: 190, y: 135, r: 50 }, { x: 288, y: 125, r: 42 }, { x: 338, y: 74, r: 38 }],
+      atp: [{ x: 400, y: 112, r: 64 }],
+    },
     draw(ctx, t, m) {
       const f = m.f, s = m.s;
       const I = f.I || 0;
@@ -76,7 +98,7 @@
       // Complexes.
       blob(ctx, 46, 135, 18, 24, '#2f7d3a', '#9ee08a'); text(ctx, 'LHCII', 46, 98, { size: 9, align: 'center' });
       blob(ctx, 86, 135, 22, 28, '#3a9a46', '#b8f0a0'); text(ctx, 'PSII', 86, 135, { size: 10, align: 'center', weight: 700 });
-      blob(ctx, 190, 135, 18, 30, '#c27a2c', '#ffcf8a'); text(ctx, 'Cyt b₆f', 190, 135, { size: 9.5, align: 'center', weight: 700 });
+      blob(ctx, 190, 135, 18, 30, '#c27a2c', '#ffcf8a'); text(ctx, 'Cyt b₆f', 190, 96, { size: 10, align: 'center', weight: 700, color: '#ffcf8a' });
       blob(ctx, 288, 135, 24, 28, '#2a6a3a', '#a6e898'); text(ctx, 'PSI', 288, 135, { size: 10, align: 'center', weight: 700 });
       blob(ctx, 338, 92, 13, 10, '#7a4fb0', '#cdb0ff'); text(ctx, 'FNR', 338, 92, { size: 8.5, align: 'center', weight: 700 });
       // ATP synthase: CF₀ ring + CF₁ head.
@@ -156,6 +178,11 @@
   // ---------------------------------------------------------------- Calvin–Benson cycle
   insets.calvin = {
     title: 'Calvin–Benson cycle · carbon fixation',
+    steps: {
+      co2: [{ x: 250, y: 60, r: 50 }, { x: 186, y: 92, r: 34 }],
+      rubisco: [{ x: 214, y: 88, r: 56 }],
+      reduce: [{ x: 214, y: 196, r: 58 }, { x: 330, y: 242, r: 40 }],
+    },
     draw(ctx, t, m) {
       const f = m.f;
       const cx = 150, cy = 156, r = 72;
@@ -184,8 +211,7 @@
       text(ctx, 'RuBP (5C)', cx - 34, cy - r + 26, { size: 9.5, color: '#bfe8ff' });
       text(ctx, '3-PGA (3C)', cx + 22, cy - 18, { size: 9.5, color: '#c8f5c0' });
       text(ctx, 'G3P (3C)', cx - 4, cy + r - 26, { size: 9.5, color: '#ffe0a0', align: 'center' });
-      text(ctx, '3 CO₂ + 9 ATP + 6 NADPH', cx, cy - 4, { size: 9.5, align: 'center', weight: 600 });
-      text(ctx, '→ 1 G3P', cx, cy + 10, { size: 9.5, align: 'center', weight: 600 });
+      text(ctx, '3 CO₂ + 9 ATP + 6 NADPH → 1 G3P', 12, 268, { size: 10.5, weight: 600, color: '#fff0c8' });
       // CO₂ arriving.
       if (v > 0.02) {
         for (let k = 0; k < 3; k++) {
@@ -221,9 +247,9 @@
     title: 'Photorespiration · a three-organelle relay',
     draw(ctx, t, m) {
       const f = m.f;
-      const cp = [80, 130], px = [220, 130], mt = [360, 130];
+      const cp = [74, 130], px = [220, 130], mt = [366, 130];
       blob(ctx, cp[0], cp[1], 62, 40, 'rgba(47,138,54,0.6)', '#b9e88d');
-      blob(ctx, px[0], px[1], 40, 40, 'rgba(60,46,88,0.9)', '#c9b2ff');
+      blob(ctx, px[0], px[1], 58, 42, 'rgba(60,46,88,0.9)', '#c9b2ff');
       ctx.save(); ctx.translate(mt[0], mt[1]);
       U.roundRect(ctx, -58, -30, 116, 60, 30); ctx.fillStyle = 'rgba(140,74,44,0.8)'; ctx.fill(); ctx.strokeStyle = '#f2a66c'; ctx.stroke();
       ctx.restore();
@@ -322,12 +348,11 @@
         const hFrom = (v / sinkTot) * midH;
         ribbon(xm + 9, from, from + hFrom, xr, sy, sy + h, colors[k] || '#ccc');
         ctx.fillStyle = colors[k] || '#ccc'; ctx.fillRect(xr, sy, 7, h);
-        const lyc = Math.max(sy + h / 2, ly + 20);
+        const lyc = Math.max(sy + h / 2, ly + 15);
         ly = lyc;
         ctx.strokeStyle = U.rgba(colors[k] || '#ccc', 0.5); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(xr + 8, sy + h / 2); ctx.lineTo(xr + 14, lyc); ctx.stroke();
-        text(ctx, k, xr + 17, lyc - 5, { size: 9.5, weight: 600, color: colors[k] });
-        text(ctx, `${U.fmt(v, 1)} · ${Math.round((v / sinkTot) * 100)}%`, xr + 17, lyc + 6, { size: 8.5, mono: true, color: 'rgba(210,230,215,0.8)' });
+        text(ctx, `${k.replace('Membranes & RNA', 'Membranes, RNA').replace('Export to plant', 'Export')} ${Math.round((v / sinkTot) * 100)}%`, xr + 17, lyc, { size: 10, weight: 600, color: colors[k] });
         from += hFrom;
         sy += h + 4;
       }
@@ -361,7 +386,8 @@
         blob(ctx, tx + Math.cos(a) * 34, ty + Math.sin(a) * 34, 3, 3, '#fff0d8');
       }
       text(ctx, 'TCA cycle', tx, ty, { align: 'center', size: 10, weight: 700 });
-      text(ctx, 'sugar → pyruvate → acetyl-CoA', tx, ty + 50, { align: 'center', size: 9 });
+      text(ctx, 'pyruvate → acetyl-CoA', tx, ty + 46, { align: 'center', size: 10 });
+      text(ctx, '(glycolysis ran in the cytosol)', tx, ty + 60, { align: 'center', size: 10, color: 'rgba(210,230,215,0.7)' });
       arrow(ctx, tx + 30, ty - 30, 60, 140, 'rgba(255,240,200,0.6)', 1.2);
       text(ctx, 'NADH', 92, 156, { size: 9, color: '#ffe0b0' });
       // Electron path.
@@ -394,8 +420,8 @@
       text(ctx, 'ADP + Pᵢ → ATP', 380, 160, { size: 10, align: 'center', color: '#ffe0a0' });
       text(ctx, `Respiration ${U.fmt(f.resp || 0, 2)} pmol C h⁻¹`, 250, 212, { size: 10, mono: true });
       text(ctx, `≈ ${U.fmt(f.atpMito || 0, 1)} pmol ATP h⁻¹`, 250, 228, { size: 10, mono: true });
-      text(ctx, 'AOX passes electrons straight to O₂:', 250, 248, { size: 9.5, color: '#a6f0d0' });
-      text(ctx, 'no pumping, so the energy leaves as heat.', 250, 262, { size: 9.5, color: '#a6f0d0' });
+      text(ctx, 'AOX skips complexes III and IV:', 250, 248, { size: 10, color: '#a6f0d0' });
+      text(ctx, 'fewer H⁺ pumped, more heat.', 250, 262, { size: 10, color: '#a6f0d0' });
     },
   };
 
@@ -419,8 +445,9 @@
         [290, 100, 'NH₄⁺', '#ffb0e0'],
         [350, 70, 'Gln', '#6af0a8'],
         [350, 135, 'Glu', '#6af0a8'],
-        [405, 100, 'amino acids', '#6af0a8'],
       ];
+      text(ctx, 'amino', 414, 94, { align: 'center', weight: 700, size: 11, color: '#6af0a8' });
+      text(ctx, 'acids', 414, 107, { align: 'center', weight: 700, size: 11, color: '#6af0a8' });
       for (const [x, y, nm, col] of nodes) text(ctx, nm, x, y, { align: 'center', weight: 700, size: 11, color: col });
       const steps = [
         [52, 100, 92, 100, 'NRT1.1 + 2H⁺', 86],
@@ -432,7 +459,8 @@
       ];
       for (const [x0, y0, x1, y1, lbl, ly] of steps) {
         arrow(ctx, x0, y0, x1, y1, 'rgba(230,230,255,0.7)', 1.4);
-        if (lbl) text(ctx, lbl, (x0 + x1) / 2 + (lbl === 'GOGAT' ? 26 : 0), ly + (lbl === 'GOGAT' ? 0 : -0), { align: 'center', size: 8.5, color: 'rgba(230,230,255,0.85)' });
+        if (lbl === 'GOGAT') text(ctx, lbl, 344, 102, { align: 'right', size: 10, color: 'rgba(230,230,255,0.85)' });
+        else if (lbl) text(ctx, lbl, (x0 + x1) / 2, ly, { align: 'center', size: 10, color: 'rgba(230,230,255,0.85)' });
       }
       text(ctx, '2-oxoglutarate (from sugar)', 382, 160, { align: 'center', size: 8.5, color: '#ffc27a' });
       arrow(ctx, 382, 152, 360, 138, 'rgba(255,194,122,0.7)', 1.2);
@@ -452,9 +480,10 @@
       }
       // Photorespiratory NH₃ loop.
       const pr = f.prNH3 || 0;
-      text(ctx, `Photorespiratory NH₃ re-fixed: ${U.fmt(pr, 1)} pmol h⁻¹`, 262, 210, { size: 9.5, color: '#ffb0e0' });
-      text(ctx, `vs. new N from nitrate: ${U.fmt(f.NRactual || 0, 2)} pmol h⁻¹`, 262, 226, { size: 9.5, color: '#d0b8ff' });
-      text(ctx, `Nitrate in: ${U.fmt(f.nUptake || 0, 2)}  ·  amino acids ${U.fmt(s.aa, 1)} pmol N`, 262, 246, { size: 9.5, mono: true });
+      text(ctx, 'pmol N per hour', 258, 198, { size: 10, color: 'rgba(210,230,215,0.7)' });
+      text(ctx, `NH₃ re-fixed (photoresp.) ${U.fmt(pr, 1)}`, 258, 214, { size: 10, color: '#ffb0e0' });
+      text(ctx, `new N from nitrate      ${U.fmt(f.NRactual || 0, 2)}`, 258, 230, { size: 10, color: '#d0b8ff' });
+      text(ctx, `nitrate taken up        ${U.fmt(f.nUptake || 0, 2)}`, 258, 246, { size: 10, color: '#d0b8ff' });
     },
   };
 
@@ -511,8 +540,8 @@
       text(ctx, 'RbcS (nucleus) + RbcL', 316, 178, { size: 8.5, align: 'center' });
       text(ctx, '(chloroplast) → Rubisco', 316, 190, { size: 8.5, align: 'center' });
       // Proteome donut.
-      const cx = 395, cy = 236, rr = 26;
-      const parts = [['photo', '#7ce07a', 'Photosynthesis'], ['ribo', '#ff9a9a', 'Ribosomes'], ['met', '#9ad0ff', 'Metabolism & transport'], ['house', '#c8bcff', 'Housekeeping']];
+      const cx = 412, cy = 240, rr = 22;
+      const parts = [['photo', '#7ce07a', 'Photosynthesis'], ['ribo', '#ff9a9a', 'Ribosomes'], ['met', '#9ad0ff', 'Metabolism'], ['house', '#c8bcff', 'Housekeeping']];
       let a0 = -Math.PI / 2;
       for (const [k, col] of parts) {
         const a1 = a0 + s.phi[k] * U.TAU;
@@ -523,7 +552,7 @@
       let ly = 240;
       for (const [k, col, nm] of parts) {
         if (k === 'house') continue;
-        text(ctx, `${nm} ${Math.round(s.phi[k] * 100)}%`, 250, ly, { size: 9, color: col, weight: 600 });
+        text(ctx, `${nm} ${Math.round(s.phi[k] * 100)}%`, 250, ly, { size: 10, color: col, weight: 600 });
         ly += 13;
       }
       text(ctx, `Translation ${U.fmt(f.protSynActual || 0, 2)} pmol N h⁻¹`, 12, 262, { size: 9, mono: true });
@@ -541,10 +570,11 @@
       ctx.fillStyle = 'rgba(134,171,156,0.15)'; ctx.fillRect(12, 34, 190, 180);
       const g = U.clamp(f.rgr * 40, 0, 1.4);
       const slide = (t * 6 * g) % 16;
-      for (let k = 0; k < 12; k++) {
-        const y = 40 + k * 15 + (k % 2 ? slide * 0.3 : -slide * 0.3);
+      // Cellulose hoops run around the cell, perpendicular to the growth axis.
+      for (let k = 0; k < 13; k++) {
+        const x = 18 + k * 15 + (k % 2 ? slide * 0.3 : -slide * 0.3);
         ctx.strokeStyle = 'rgba(230,245,235,0.8)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(12, y); ctx.bezierCurveTo(70, y - 3, 140, y + 3, 202, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 34); ctx.bezierCurveTo(x - 3, 90, x + 3, 160, x, 214); ctx.stroke();
       }
       // Hemicellulose tethers and expansins.
       for (let k = 0; k < 18; k++) {
@@ -564,8 +594,7 @@
       text(ctx, 'Cellulose hoops, tethers, expansins, H⁺', 107, 222, { size: 9, align: 'center' });
       text(ctx, `wall pH ${U.fmt(s.pH, 1)}`, 107, 236, { size: 9.5, align: 'center', mono: true, color: '#ffb08a' });
       // Arrows showing growth direction (perpendicular to hoops).
-      arrow(ctx, 107, 128, 107 + 0, 128, 'rgba(0,0,0,0)', 0);
-      text(ctx, '↔ cell elongates', 107, 252, { size: 9.5, align: 'center', color: '#bff5b0' });
+      text(ctx, '↔ growth runs across the hoops', 107, 252, { size: 10, align: 'center', color: '#bff5b0' });
       // Lockhart plot.
       const x0 = 250, y0 = 210, pw = 170, ph = 150;
       ctx.strokeStyle = 'rgba(220,240,225,0.6)'; ctx.lineWidth = 1;
@@ -675,5 +704,5 @@
     },
   };
 
-  VC.Insets = { list: insets, W, H };
+  VC.Insets = { list: insets, W, H, spot };
 })(window.VC);

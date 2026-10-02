@@ -35,17 +35,107 @@
   const pct = (x) => `${Math.round(x * 100)}%`;
   const limText = (m) => ({ light: 'light — the electron transport chain can’t keep up', rubisco: 'Rubisco — the enzyme is working flat out', sink: 'sugar use — sucrose is backing up', dark: 'darkness' }[m.f.limiter]);
 
+
+  // ---------- story overlays drawn in world coordinates ----------
+  function flowArrow(ctx, px, a, b, width, color, label, bend = 0.25) {
+    const mx = (a.x + b.x) / 2 - (b.y - a.y) * bend, my = (a.y + b.y) / 2 + (b.x - a.x) * bend;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = U.rgba(color, 0.18);
+    ctx.lineWidth = width + 6 * px;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
+    ctx.strokeStyle = U.rgba(color, 0.85);
+    ctx.lineWidth = width;
+    ctx.setLineDash([10 * px, 7 * px]);
+    ctx.lineDashOffset = -performance.now() / 40 * px;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
+    ctx.setLineDash([]);
+    const ang = Math.atan2(b.y - my, b.x - mx), hs = Math.max(width * 1.6, 9 * px);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - Math.cos(ang - 0.5) * hs, b.y - Math.sin(ang - 0.5) * hs);
+    ctx.lineTo(b.x - Math.cos(ang + 0.5) * hs, b.y - Math.sin(ang + 0.5) * hs);
+    ctx.closePath(); ctx.fill();
+    if (label) {
+      const lx = 0.25 * a.x + 0.5 * mx + 0.25 * b.x, ly = 0.25 * a.y + 0.5 * my + 0.25 * b.y;
+      ctx.font = `600 ${12 * px}px "IBM Plex Sans", system-ui, sans-serif`;
+      const w = ctx.measureText(label).width + 10 * px;
+      ctx.fillStyle = 'rgba(6,16,18,0.85)';
+      U.roundRect(ctx, lx - w / 2, ly - 9 * px, w, 18 * px, 5 * px); ctx.fill();
+      ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, lx, ly);
+      ctx.textAlign = 'left';
+    }
+    ctx.restore();
+  }
+
+  // The chloroplast's choice: keep triose-P as starch, or export it as sucrose.
+  function drawFork(app, ctx, cp) {
+    if (!cp) return;
+    const m = app.model, o = app.scene.outline, px = app.renderer.px;
+    const fs = m.f.fs || 0;
+    const st = cp.starch[0];
+    const ca = Math.cos(cp.a), sa = Math.sin(cp.a);
+    const grain = { x: cp.x + (st.u * cp.len * 0.4) * ca - (st.v * cp.wid * 0.35) * sa, y: cp.y + (st.u * cp.len * 0.4) * sa + (st.v * cp.wid * 0.35) * ca };
+    const out = o.at(cp.t + 0.02, 0.98);
+    const k = 14 * px;
+    flowArrow(ctx, px, { x: cp.x + 12 * ca, y: cp.y + 12 * sa }, grain, 1.5 * px + k * fs * 0.6, '#f3ecd6', `${Math.round(fs * 100)}% → starch`, 0.6);
+    flowArrow(ctx, px, { x: cp.x, y: cp.y }, out, 1.5 * px + k * (1 - fs) * 0.6, '#ff9419', `${Math.round((1 - fs) * 100)}% → sucrose`, 0.15);
+  }
+
+  // Sucrose shared among sinks, arrow widths proportional to the live fluxes.
+  function drawSinks(app, ctx) {
+    const m = app.model, sc = app.scene, o = sc.outline, px = app.renderer.px, f = m.f;
+    // Hub in the thick cytoplasm beside the nucleus (left side, clear of the close-up panel).
+    const hubT = U.wrap01(o.nucT - 0.06);
+    const hub = o.at(hubT, 0.55);
+    const tot = Math.max(1e-6, f.resp + f.wallSyn + f.lipidSyn + f.nuclSyn + f.aaC + Math.max(0, f.vacSug) + f.export);
+    const W = (v) => 1.5 * px + (v / tot) * 26 * px;
+    const mi = sc.nearestOf('mito', hub.x, hub.y);
+    const pd = sc.layout.plasmodesmata.reduce((a, b) => (Math.abs(U.wrap01(b.t - hubT + 0.5) - 0.5) < Math.abs(U.wrap01(a.t - hubT + 0.5) - 0.5) ? b : a));
+    const csc = o.at(hubT - 0.05, 0.0);
+    const vac = { x: o.cx - o.W * 0.25, y: o.cy - o.H * 0.25 };
+    const cpP = o.at(hubT - 0.1, 0.5);
+    const cp = sc.nearestOf('chloroplast', cpP.x, cpP.y);
+    const pct = (v) => `${Math.round((v / tot) * 100)}%`;
+    ctx.beginPath(); ctx.arc(hub.x, hub.y, 7 * px, 0, U.TAU); ctx.fillStyle = '#ff9419'; ctx.fill();
+    flowArrow(ctx, px, hub, sc.outsidePoint(pd.t, 30), W(f.export), '#ff9419', `export ${pct(f.export)}`, 0.2);
+    flowArrow(ctx, px, hub, { x: mi.x, y: mi.y }, W(f.resp), '#ff8a5c', `respiration ${pct(f.resp)}`, -0.3);
+    flowArrow(ctx, px, hub, csc, W(f.wallSyn + f.lipidSyn + f.nuclSyn), '#b4e0c8', `wall & membranes ${pct(f.wallSyn + f.lipidSyn + f.nuclSyn)}`, 0.3);
+    flowArrow(ctx, px, hub, vac, W(Math.max(0, f.vacSug)), '#4f9dff', `vacuole ${pct(Math.max(0, f.vacSug))}`, -0.15);
+    flowArrow(ctx, px, hub, { x: cp.x, y: cp.y }, W(f.aaC), '#6af0a8', `amino acids ${pct(f.aaC)}`, 0.3);
+  }
+
+  // Dashed outline of the cell at birth size, for comparison.
+  function drawGhost(app, ctx) {
+    const o = app.scene.outline, px = app.renderer.px;
+    const W0 = VC.Scene.W0 * Math.pow(app.model.s.Vb / app.model.V0, 0.8), H0 = VC.Scene.H0 * Math.pow(app.model.s.Vb / app.model.V0, 0.2);
+    const x0 = o.cx - o.W, y0 = o.cy - H0;
+    ctx.save();
+    ctx.setLineDash([8 * px, 6 * px]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 2 * px;
+    U.roundRect(ctx, x0, y0, W0 * 2, H0 * 2, H0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = `600 ${13 * px}px "IBM Plex Sans", system-ui, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText('size at birth', x0 + 2 * W0 - 90 * px, y0 - 8 * px);
+    ctx.fillStyle = '#bff5b0';
+    ctx.fillText(`now ×${U.fmt(app.model.s.V / app.model.s.Vb, 2)} volume`, o.cx + o.W - 150 * px, o.cy + o.H + 26 * px);
+    ctx.restore();
+  }
+
   const CHAPTERS = [
     {
-      id: 'meet', title: 'A cell in a leaf', start: { hour: 4.2, window: [3.9, 4.6] },
+      id: 'meet', title: 'A cell in a leaf', start: { hour: 3.5, window: [3.3, 3.9], reset: true },
       beats: [
         {
-          cam: 'wide', speed: 1,
-          text: 'This is a single living cell from inside a young leaf: a mesophyll cell, about 45 micrometres long. Around it are its neighbours, and between them are air spaces that carry gases in and out of the leaf.',
+          cam: 'wide', speed: 0.3,
+          text: 'This is a single living cell from inside a young, still-growing leaf: a mesophyll cell, about 45 micrometres long. Young leaf cells like this one still divide; mature ones with a huge vacuole usually stop. Around it are its neighbours, and between them are air spaces that carry gases in and out of the leaf.',
           labels: (a) => [lab({ x: a.scene.outline.cx + a.scene.outline.W + 150, y: a.scene.outline.cy - a.scene.outline.H - 30 }, 'Air space', 'CO₂ in, O₂ out')],
         },
         {
-          cam: (a) => view(pick.pmPoint(a, 0.75), 260), speed: 1,
+          cam: (a) => view(pick.pmPoint(a, 0.75), 260), speed: 0.3,
           focus: (a) => [{ ...pick.pmPoint(a, 0.75), r: 90 }],
           text: 'The outer box is the cell wall: cables of cellulose embedded in a gel of pectin and hemicellulose. It holds back an internal pressure about three times that of a car tyre. Narrow channels called plasmodesmata cross it and connect the cell to its neighbours.',
           labels: (a) => {
@@ -56,43 +146,45 @@
           },
         },
         {
-          cam: 'cell', speed: 1,
+          cam: 'cell', speed: 0.3,
           focus: (a) => [{ x: a.scene.outline.cx + 40, y: a.scene.outline.cy, r: a.scene.outline.H * 0.9 }],
           text: 'Most of the inside is one water-filled compartment, the central vacuole. It stores water, salts, sugars and nitrate, and it presses the living cytoplasm into a thin layer against the wall.',
           labels: (a) => [lab({ x: a.scene.outline.cx + 40, y: a.scene.outline.cy }, 'Central vacuole', 'water, ions, sugar, nitrate'), lab(a.scene.outline.at(0.12, 0.5), 'Cytoplasm', 'a thin living layer', { dy: 1 })],
         },
         {
-          cam: (a) => view(a.scene.nucleus, 300), speed: 1,
+          cam: (a) => view(a.scene.nucleus, 300), speed: 0.3,
           focus: (a) => [{ x: a.scene.nucleus.x, y: a.scene.nucleus.y, r: 80 }],
           text: 'The nucleus holds the genome: about 27,000 protein-coding genes in the model plant Arabidopsis. It sits in a pocket of thicker cytoplasm, tied to the far side of the cell by strands that cross the vacuole.',
           labels: (a) => [lab(a.scene.nucleus, 'Nucleus', 'genome, ~27,000 genes'), lab({ x: a.scene.nucleus.x + 12, y: a.scene.nucleus.y - 8 }, 'Nucleolus', 'ribosome factory', { dx: 1, dy: 1 })],
           inset: null,
         },
         {
-          cam: (a) => view(pick.cp(a), 230), speed: 1, ref: (a) => ({ cp: pick.cp(a) }),
+          cam: (a) => view(pick.cp(a), 230), speed: 0.3, ref: (a) => ({ cp: pick.cp(a) }),
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 55 }],
           text: 'Lining the edges are chloroplasts, the cell’s solar-powered sugar factories. They descend from a cyanobacterium taken in more than a billion years ago, and they still carry their own small genome. The white grains inside are starch.',
           labels: (a, r) => [lab(r.cp, 'Chloroplast', 'photosynthesis'), lab({ x: r.cp.x + Math.cos(r.cp.a) * 10, y: r.cp.y + Math.sin(r.cp.a) * 10 }, 'Starch grain', 'yesterday’s savings', { dy: 1 })],
         },
         {
-          cam: (a, r) => view(r.mi, 220), follow: true, speed: 1,
+          cam: (a, r) => view(r.mi, 220), follow: true, speed: 0.3,
           ref: (a) => { const cp = pick.cp(a); const mi = pick.mito(a, cp); return { cp, mi, px: pick.perox(a, mi) }; },
           focus: (a, r) => [{ x: r.mi.x, y: r.mi.y, r: 40 }, { x: r.px.x, y: r.px.y, r: 30 }],
           text: 'Smaller organelles drift past: mitochondria, which burn sugar for energy, and peroxisomes, which clean up after a costly side reaction of photosynthesis. Everything is carried along tracks of actin. This cytoplasmic streaming is shown at real speed, a few micrometres per second.',
           labels: (a, r) => [lab(r.mi, 'Mitochondrion', 'respiration'), lab(r.px, 'Peroxisome', 'photorespiration, detox', { dy: 1 })],
         },
         {
-          cam: (a, r) => view(r.g, 200), follow: true, speed: 1, ref: (a) => ({ g: pick.golgi(a) }),
+          cam: (a, r) => view(r.g, 200), follow: true, speed: 0.3, ref: (a) => ({ g: pick.golgi(a) }),
           focus: (a, r) => [{ x: r.g.x, y: r.g.y, r: 60 }],
           text: 'The endoplasmic reticulum forms a membrane network through the cytoplasm. Next to it, small Golgi stacks package proteins and wall materials into vesicles and send them to the surface.',
           labels: (a, r) => {
-            const n = a.scene.layout.er.nodes.find((q) => q.rough) || a.scene.layout.er.nodes[0];
-            const p = a.scene.outline.at(n.t, n.d);
+            const o = a.scene.outline;
+            const n = a.scene.layout.er.nodes.map((q) => o.at(q.t, q.d)).filter((p) => Math.hypot(p.x - r.g.x, p.y - r.g.y) > 18)
+              .sort((p, q) => Math.hypot(p.x - r.g.x, p.y - r.g.y) - Math.hypot(q.x - r.g.x, q.y - r.g.y))[0];
+            const p = n || o.at(o.nucT, 0.3);
             return [lab(r.g, 'Golgi stack', 'packaging & shipping'), lab(p, 'Endoplasmic reticulum', 'membrane network', { dy: 1 })];
           },
         },
         {
-          cam: 'cell', speed: 6, until: (m) => m.f.I > 5, maxWait: 40,
+          cam: 'cell', speed: 3, until: (m) => m.f.I > 5, maxWait: 40,
           text: (m) => `It is ${U.fmtClock(m.s.t).text}. The chloroplasts are dark. Overnight the cell has lived on starch saved the day before, and the grains are nearly used up. Dawn is coming.`,
         },
       ],
@@ -101,30 +193,30 @@
       id: 'light', title: 'First light', start: { hour: 5.2, window: [4.95, 9] },
       beats: [
         {
-          cam: 'cell', speed: 4, until: (m) => m.f.I > 200, maxWait: 25,
+          cam: 'cell', speed: 2.48, until: (m) => m.f.I > 200, maxWait: 25,
           text: 'Sunrise. Photons start to stream into the leaf. Most pass straight through the clear vacuole and are absorbed by chloroplasts.',
           groups: ['light'],
         },
         {
-          cam: (a, r) => view(r.cp, 120), speed: 1.5, ref: (a) => ({ cp: pick.cp(a) }), inset: 'thylakoid', groups: ['light'],
+          cam: (a, r) => view(r.cp, 120), speed: 0.93, ref: (a) => ({ cp: pick.cp(a) }), inset: 'thylakoid', step: 'antenna', groups: ['light'],
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 50 }],
           text: 'Inside each chloroplast are stacks of flattened membrane sacs called thylakoids. Pigment antennas catch the light and pass its energy to Photosystem II.',
           labels: (a, r) => [lab({ x: r.cp.x + Math.cos(r.cp.a) * r.cp.grana[1].u * r.cp.len / 2, y: r.cp.y + Math.sin(r.cp.a) * r.cp.grana[1].u * r.cp.len / 2 }, 'Granum', 'stack of thylakoids')],
         },
         {
-          cam: null, speed: 1.5, inset: 'thylakoid', groups: ['light'],
+          cam: null, speed: 0.93, inset: 'thylakoid', step: 'psii', groups: ['light'],
           text: 'Photosystem II does something remarkable: it splits water. Two water molecules give up four electrons and four protons and release one O₂. The oxygen you breathe was set free this way.',
         },
         {
-          cam: null, speed: 1.5, inset: 'thylakoid', groups: ['light'],
+          cam: null, speed: 0.93, inset: 'thylakoid', step: 'chain', groups: ['light'],
           text: 'The electrons travel down a chain, from plastoquinone to cytochrome b₆f to plastocyanin, pumping protons into the thylakoid as they go. Photosystem I re-energises them, and they end up in NADPH.',
         },
         {
-          cam: null, speed: 1.5, inset: 'thylakoid', groups: ['light'],
+          cam: null, speed: 0.93, inset: 'thylakoid', step: 'atp', groups: ['light'],
           text: (m) => `Protons rush back out through ATP synthase and spin it like a turbine, making ATP. Light energy is now chemical energy. Right now electrons flow at ${U.fmt(m.f.J, 0)} µmol per m² of leaf per second.`,
         },
         {
-          cam: 'cell', speed: 4, inset: 'thylakoid', groups: ['light'],
+          cam: 'cell', speed: 1.86, inset: 'thylakoid', groups: ['light'], emph: ['o2'], tag: { type: 'o2', text: 'O₂' },
           text: 'Oxygen leaves the cell and diffuses out through the air spaces. As the sun climbs, the ATP and NADPH gauges in the inset fill up.',
         },
       ],
@@ -133,22 +225,23 @@
       id: 'calvin', title: 'Fixing carbon', start: { hour: 7.5, window: [6.5, 12] },
       beats: [
         {
-          cam: (a, r) => view({ x: r.cp.x, y: r.cp.y - 50 }, 300), speed: 2, ref: (a) => ({ cp: pick.cp(a) }), groups: ['carbon'],
+          cam: (a, r) => view({ x: r.cp.x, y: r.cp.y - 50 }, 300), speed: 1.24, ref: (a) => ({ cp: pick.cp(a) }), groups: ['carbon'], inset: 'calvin', step: 'co2',
+          emph: ['co2'], tag: { type: 'co2', text: 'CO₂' },
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y - 40, r: 110 }],
           text: (m) => `Carbon dioxide drifts in from the air spaces. Air holds about ${m.env.co2} CO₂ molecules per million. They dissolve in the wall water and cross the membranes into the chloroplast.`,
-          labels: (a, r) => [lab({ x: r.cp.x - 20, y: r.cp.y - 60 }, 'CO₂', 'from the air space')],
+          labels: (a, r) => { const q = a.scene.outsidePoint(r.cp.t, 40); return [lab(q, 'Air space', 'CO₂ diffuses in from here', { dy: -1 })]; },
         },
         {
-          cam: (a, r) => view(r.cp, 130), speed: 2, ref: (a) => ({ cp: pick.cp(a) }), inset: 'calvin', groups: ['carbon'],
+          cam: (a, r) => view(r.cp, 130), speed: 1.24, ref: (a) => ({ cp: pick.cp(a) }), inset: 'calvin', step: 'rubisco', groups: ['carbon'], emph: ['co2'],
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 50 }],
           text: 'In the chloroplast’s fluid interior waits Rubisco, the most abundant protein on Earth. It is slow, handling about three CO₂ molecules per second, so the cell makes huge amounts of it: up to half of all the soluble protein in a leaf.',
         },
         {
-          cam: null, speed: 2, inset: 'calvin', groups: ['carbon'],
+          cam: null, speed: 1.24, inset: 'calvin', step: 'reduce', groups: ['carbon'],
           text: 'Rubisco attaches CO₂ to a five-carbon sugar called RuBP. ATP and NADPH from the light reactions turn the products into a three-carbon sugar, triose phosphate. For every three CO₂ fixed, one triose phosphate is profit; the other five are recycled to keep the cycle turning.',
         },
         {
-          cam: 'cell', speed: 3, inset: 'calvin', groups: ['carbon'],
+          cam: 'cell', speed: 1.86, inset: 'calvin', groups: ['carbon'],
           text: (m) => `Right now, photosynthesis is limited by ${limText(m)}. Net uptake is ${U.fmt(m.f.netA, 1)} µmol CO₂ per m² of leaf per second, a typical value for a healthy leaf.`,
         },
       ],
@@ -157,18 +250,19 @@
       id: 'photoresp', title: 'A costly mistake', start: { hour: 10, window: [9, 15] },
       beats: [
         {
-          cam: (a, r) => view(r.mid, 260), speed: 1.5, inset: 'photoresp', groups: ['photoresp'],
+          cam: (a, r) => view(r.mid, 260), speed: 0.93, inset: 'photoresp', groups: ['photoresp'],
           ref: (a) => { const cp = pick.cp(a); const px = pick.perox(a, cp); const mi = pick.mito(a, px); return { cp, px, mi, mid: { x: (cp.x + px.x + mi.x) / 3, y: (cp.y + px.y + mi.y) / 3 } }; },
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 45 }, { x: r.px.x, y: r.px.y, r: 30 }, { x: r.mi.x, y: r.mi.y, r: 30 }],
           labels: (a, r) => [lab(r.cp, 'Chloroplast'), lab(r.px, 'Peroxisome', null, { dy: 1 }), lab(r.mi, 'Mitochondrion', null, { dx: 1 })],
-          text: (m) => `Rubisco can’t fully tell CO₂ from O₂. Right now it grabs oxygen in about ${Math.round(m.f.voRatio * 100)} of every 100 reactions, which makes a two-carbon by-product that poisons the Calvin cycle.`,
+          emph: ['glycolate'], tag: { type: 'glycolate', text: 'glycolate' },
+          text: (m) => `Rubisco can’t fully tell CO₂ from O₂. Right now, for every 100 CO₂ it fixes, it grabs about ${Math.round(m.f.voRatio * 100)} O₂ by mistake. That makes a two-carbon by-product that poisons the Calvin cycle.`,
         },
         {
-          cam: null, speed: 1.5, inset: 'photoresp', groups: ['photoresp'],
+          cam: null, speed: 0.93, inset: 'photoresp', groups: ['photoresp'], emph: ['glycolate'], tag: { type: 'glycolate', text: 'glycine → serine' },
           text: 'Salvaging it takes a relay through three organelles: chloroplast, peroxisome, mitochondrion, peroxisome and back to the chloroplast. Follow the pink molecules. Along the way the cell releases CO₂ and ammonia, and the ammonia has to be captured again.',
         },
         {
-          cam: null, speed: 1.5, inset: 'photoresp', groups: ['photoresp'],
+          cam: null, speed: 0.93, inset: 'photoresp', groups: ['photoresp'],
           text: (m) => `The salvage costs energy and loses carbon: ${pct(m.f.prLossFrac)} of what Rubisco fixes leaves again as CO₂. Hot days make it worse, because oxygenation rises faster with temperature than carboxylation.`,
         },
       ],
@@ -177,21 +271,26 @@
       id: 'allocate', title: 'Where should the sugar go?', start: { hour: 11, window: [10, 16] },
       beats: [
         {
-          cam: (a, r) => view(r.cp, 150), speed: 2, ref: (a) => ({ cp: pick.cp(a) }), inset: 'allocation', groups: ['carbon'],
+          cam: (a, r) => view(r.cp, 150), speed: 1.24, ref: (a) => ({ cp: pick.cp(a) }), inset: 'allocation', groups: ['carbon'], emph: ['triose'], tag: { type: 'triose', text: 'triose phosphate' },
+          draw: (a, ctx, r) => drawFork(a, ctx, r.cp),
+          labels: (a, r) => { const e = a.scene.outline.at(r.cp.t, 0.47 + (r.cp.wid / 2 + 1) / a.scene.outline.thick(r.cp.t)); return [lab(e, 'TPT', 'triose-P out, phosphate in', { dy: 1 })]; },
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 70 }],
           text: 'Every new triose phosphate faces a choice. It can leave the chloroplast through the triose-phosphate/phosphate translocator and be built into sucrose in the cytosol…',
         },
         {
-          cam: null, speed: 3, inset: 'allocation', groups: ['carbon'],
+          cam: null, speed: 1.86, inset: 'allocation', groups: ['carbon'], emph: ['triose'],
+          draw: (a, ctx, r) => drawFork(a, ctx, r.cp),
           text: (m) => `…or it can stay in the chloroplast and be stored as starch. Watch the starch grains swell through the day. Right now ${pct(m.f.fs)} of new carbon is going into starch, saved for the night.`,
         },
         {
-          cam: 'cell', speed: 3, inset: 'allocation', groups: ['carbon', 'energy'],
+          cam: 'cell', speed: 1.86, inset: 'allocation', groups: ['carbon', 'energy'], emph: ['sugar'], tag: { type: 'sugar', text: 'sucrose' },
+          draw: (a, ctx) => drawSinks(a, ctx),
           text: 'In the cytosol, sucrose is shared among competing demands: fuel for the mitochondria, building blocks for the wall and for proteins, osmotic storage in the vacuole, and export to the rest of the plant through plasmodesmata. Follow the orange molecules.',
         },
         {
-          cam: null, speed: 3, inset: 'allocation', groups: ['carbon'],
-          text: (m) => `The split changes with conditions. When sugar piles up, it signals the nucleus to turn down photosynthesis genes and sends more carbon to starch. When sugar runs short, the reverse happens. Right now ${pct(m.f.export / Math.max(1e-6, m.f.sucSyn + m.f.starchDeg))} of the sugar leaves to feed growing parts of the plant.`,
+          cam: null, speed: 1.86, inset: 'allocation', groups: ['carbon'],
+          text: (m) => `The split changes with conditions. When sugar piles up, it signals the nucleus to turn down photosynthesis genes and sends more carbon to starch. When sugar runs short, the reverse happens. Of all the carbon the cell is using right now, ${pct(m.f.export / Math.max(1e-6, Object.values(m.carbonFlows().sinks).reduce((x, y) => x + y, 0)))} is exported to feed growing parts of the plant, the same share as in the diagram.`,
+          draw: (a, ctx) => drawSinks(a, ctx),
         },
       ],
     },
@@ -199,17 +298,17 @@
       id: 'mito', title: 'Power plants', start: { hour: 12, window: [11, 17] },
       beats: [
         {
-          cam: (a, r) => view(r.mi, 90), follow: true, speed: 2, ref: (a) => ({ mi: pick.mito(a, pick.cp(a)) }), inset: 'mito', groups: ['energy', 'carbon'],
+          cam: (a, r) => view(r.mi, 90), follow: true, speed: 1.24, ref: (a) => ({ mi: pick.mito(a, pick.cp(a)) }), inset: 'mito', groups: ['energy', 'carbon'],
           focus: (a, r) => [{ x: r.mi.x, y: r.mi.y, r: 28 }],
           labels: (a, r) => [lab(r.mi, 'Mitochondrion', 'cristae = folded inner membrane')],
-          text: 'Mitochondria break sugar down through glycolysis and the Krebs (TCA) cycle. The electrons they strip off run down a second transport chain to oxygen, pumping protons, and ATP synthase turns that gradient into ATP.',
+          text: 'Sugar is first split in the cytosol (glycolysis). Mitochondria take the product, pyruvate, and burn it in the Krebs (TCA) cycle. The electrons they strip off run down a second transport chain to oxygen, pumping protons, and ATP synthase turns that gradient into ATP.',
         },
         {
-          cam: null, follow: true, speed: 2, inset: 'mito', groups: ['energy'],
-          text: 'Plant mitochondria have an escape valve, the alternative oxidase (AOX). It hands electrons straight to oxygen without pumping, so the energy is released as heat. This protects the cell when the chain is overloaded, for example under stress.',
+          cam: null, follow: true, speed: 1.24, inset: 'mito', groups: ['energy'],
+          text: 'Plant mitochondria have an escape valve, the alternative oxidase (AOX). It takes electrons from ubiquinone and passes them straight to oxygen, bypassing complexes III and IV. Fewer protons are pumped, so more energy is released as heat. This protects the cell when the chain is overloaded, for example under stress.',
         },
         {
-          cam: 'cell', speed: 3, inset: 'mito', groups: ['energy'],
+          cam: 'cell', speed: 1.86, inset: 'mito', groups: ['energy'], emph: ['atp'], tag: { type: 'atp', text: 'ATP' },
           text: (m) => `Yellow sparks are ATP leaving mitochondria to power protein synthesis, pumps and wall building. Mitochondria keep working by day, burning ${U.fmt(m.f.resp, 1)} pmol of sugar carbon per hour. After dark they are the cell’s only power source.`,
         },
       ],
@@ -218,17 +317,20 @@
       id: 'nitrogen', title: 'Bringing in nitrogen', start: { hour: 13, window: [12, 17.5] },
       beats: [
         {
-          cam: (a) => view(pick.pmPoint(a, 0.82), 220), speed: 2, inset: 'nitrogen', groups: ['nitrogen'],
+          cam: (a) => view(pick.pmPoint(a, 0.82), 220), speed: 1.24, inset: 'nitrogen', groups: ['nitrogen'], emph: ['nitrate'], tag: { type: 'nitrate', text: 'nitrate' },
           focus: (a) => [{ ...pick.pmPoint(a, 0.82), r: 90 }],
           labels: (a) => { const p = a.scene.layout.pmProteins.find((q) => q.type === 'nrt' && q.t > 0.7) || a.scene.layout.pmProteins[3]; return [lab(a.scene.outline.pm(p.t), 'NRT1.1 nitrate transporter', 'co-transports 2 H⁺', { dy: -1 })]; },
           text: 'Sugar alone can’t build a cell: proteins and DNA also need nitrogen. It arrives from the roots as nitrate, which NRT transporters pull across the membrane together with protons.',
         },
         {
-          cam: 'cell', speed: 2, inset: 'nitrogen', groups: ['nitrogen'],
+          cam: (a, r) => view(r.cp, 200), ref: (a) => ({ cp: pick.cp(a) }), speed: 1.24, inset: 'nitrogen', groups: ['nitrogen'], emph: ['nitrate'], tag: { type: 'nitrate', text: 'nitrate → nitrite' },
+          focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 70 }],
+          labels: (a, r) => [lab(r.cp, 'Chloroplast', 'nitrite → ammonium (NiR)')],
           text: 'Nitrate reductase in the cytosol turns nitrate into nitrite. In the chloroplast, nitrite reductase uses electrons straight from the light reactions to make ammonium. Leaves do much of their nitrogen work in the light for this reason.',
         },
         {
-          cam: null, speed: 2, inset: 'nitrogen', groups: ['nitrogen'],
+          cam: null, speed: 1.24, inset: 'nitrogen', groups: ['nitrogen'], emph: ['aa'], tag: { type: 'aa', text: 'amino acid' },
+          focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 70 }],
           text: 'Ammonium is toxic, so it is captured immediately by two enzymes, GS and GOGAT, which build it into glutamine and glutamate. From these, the cell makes all its other amino acids (the green squares). Spare nitrate is stored in the vacuole for later.',
         },
       ],
@@ -237,22 +339,24 @@
       id: 'genes', title: 'From gene to protein', start: { hour: 14, window: [12.5, 18] },
       beats: [
         {
-          cam: (a) => view(a.scene.nucleus, 280), speed: 2, inset: 'expression', groups: ['genes'],
+          cam: (a) => view({ x: a.scene.nucleus.x + 30, y: a.scene.nucleus.y }, 190), speed: 1.24, inset: 'expression', groups: ['genes'], emph: ['mrna'], tag: { type: 'mrna', text: 'mRNA' },
           focus: (a) => [{ x: a.scene.nucleus.x, y: a.scene.nucleus.y, r: 95 }],
-          labels: (a) => [lab(a.scene.nucleus, 'Nucleus', 'transcription')],
+          labels: (a) => { const n = a.scene.nucleus; return [lab(n, 'Nucleus', 'transcription'), lab({ x: n.x + n.rx + 1, y: n.y }, 'Nuclear pore', 'mRNA exits here', { dx: 1, dy: 1 })]; },
           text: 'Inside the nucleus, light has switched on hundreds of genes. RNA polymerase copies them into messenger RNA (red), which leaves through nuclear pores.',
         },
         {
-          cam: null, speed: 2, inset: 'expression', groups: ['genes', 'nitrogen'],
+          cam: (a, r) => view(r.g, 150), follow: true, ref: (a) => ({ g: pick.golgi(a) }), speed: 1.24, inset: 'expression', groups: ['genes', 'nitrogen'], emph: ['protein', 'vesicle'], tag: { type: 'vesicle', text: 'vesicle' },
+          focus: (a, r) => [{ x: r.g.x, y: r.g.y, r: 60 }],
+          labels: (a, r) => [lab(r.g, 'Golgi stack')],
           text: 'Ribosomes read the mRNA and join amino acids into proteins at about five to ten per second. Proteins for the membrane and the wall are made on the rough ER, then travel through the Golgi and leave in vesicles.',
         },
         {
-          cam: (a, r) => view(r.cp, 220), speed: 2, ref: (a) => ({ cp: pick.cp(a) }), inset: 'expression', groups: ['genes'],
+          cam: (a, r) => view(r.cp, 220), speed: 1.24, ref: (a) => ({ cp: pick.cp(a) }), inset: 'expression', groups: ['genes'],
           focus: (a, r) => [{ x: r.cp.x, y: r.cp.y, r: 60 }],
           text: 'Most chloroplast proteins are made outside the chloroplast and imported through the TOC and TIC gates. Rubisco itself is a joint project: its small subunits come from nuclear genes, its large subunits from the chloroplast’s own DNA.',
         },
         {
-          cam: 'cell', speed: 3, inset: 'expression', groups: ['genes'],
+          cam: 'cell', speed: 1.86, inset: 'expression', groups: ['genes'],
           text: (m) => `Deciding how to divide protein-making capacity, the proteome, is the cell’s most important allocation decision. Right now ${pct(m.s.phi.photo)} of new protein goes to photosynthesis, ${pct(m.s.phi.ribo)} to new ribosomes and ${pct(m.s.phi.met)} to metabolism and transport.`,
         },
       ],
@@ -261,27 +365,28 @@
       id: 'growth', title: 'Water, pressure and growth', start: { hour: 15, window: [13, 18.5] },
       beats: [
         {
-          cam: (a) => view(pick.pmPoint(a, 0.68), 220), speed: 2, inset: 'growth', groups: ['water'],
+          cam: (a) => view(pick.pmPoint(a, 0.68), 220), speed: 1.24, inset: 'growth', groups: ['water'], emph: ['h2o'], tag: { type: 'h2o', text: 'water' },
           focus: (a) => [{ ...pick.pmPoint(a, 0.68), r: 90 }],
           labels: (a) => { const p = a.scene.layout.pmProteins.find((q) => q.type === 'aquaporin' && q.t > 0.6) || a.scene.layout.pmProteins[0]; return [lab(a.scene.outline.pm(p.t), 'Aquaporin', 'water channel', { dy: -1 })]; },
           text: (m) => `Plant cells grow mainly by taking up water. Solutes in the vacuole draw water in through aquaporin channels, and the swelling vacuole pushes outward. This is turgor pressure, now ${U.fmt(m.f.P, 2)} MPa.`,
         },
         {
-          cam: null, speed: 2, inset: 'growth', groups: ['water'],
+          cam: null, speed: 1.24, inset: 'growth', groups: ['water'],
           text: 'The wall resists. The cell grows only when turgor exceeds a yield threshold and the wall is loosened. Proton pumps acidify the wall, which activates expansin proteins that let the cellulose cables slip past each other.',
         },
         {
-          cam: null, speed: 2, inset: 'growth', groups: ['water', 'carbon'],
+          cam: null, speed: 1.24, inset: 'growth', groups: ['water', 'carbon'],
           text: 'Just under the membrane, cellulose synthase complexes move along microtubule tracks and spin out new cellulose fibres. The fibres wrap around the cell like barrel hoops, so it grows longer instead of rounder.',
         },
         {
-          cam: 'cell', speed: 12, inset: 'growth', groups: ['water'],
-          text: (m) => `Filling the vacuole with water is cheap compared with making new cytoplasm, so a plant cell can grow large at low cost. Watch the outline lengthen: the volume is now ${U.fmt(m.s.V / 1000, 1)} thousand µm³, ${U.fmt(m.s.V / m.s.Vb, 2)}× its size at birth.`,
+          cam: 'cellfixed', speed: 4.96, inset: 'growth', groups: ['water'], emph: ['h2o'], tag: { type: 'h2o', text: 'water' },
+          draw: (a, ctx) => drawGhost(a, ctx),
+          text: (m) => `Filling the vacuole with water is cheap compared with making new cytoplasm, so a plant cell can grow large at low cost. Compare the cell with the dashed outline of its size at birth: the volume is now ${U.fmt(m.s.V / 1000, 1)} thousand µm³, ${U.fmt(m.s.V / m.s.Vb, 2)}× its size at birth.`,
         },
       ],
     },
     {
-      id: 'night', title: 'The night shift', start: { hour: 18, window: [17.5, 18.9] },
+      id: 'night', title: 'The night shift', start: { sunset: true },
       beats: [
         {
           cam: 'cell', speed: 8, until: (m) => m.f.I < 1, maxWait: 30, inset: 'starch',
@@ -297,6 +402,7 @@
         },
         {
           cam: 'cell', speed: 25, inset: 'starch', groups: ['carbon', 'energy'], until: (m) => m.f.I > 1, maxWait: 40,
+          emph: ['maltose'], tag: { type: 'maltose', text: 'maltose' },
           text: 'Maltose (pale yellow) leaves the chloroplasts and is rebuilt into sucrose, which keeps the mitochondria, protein synthesis and growth going through the night. Many leaves grow fastest around dawn.',
         },
       ],
@@ -305,8 +411,9 @@
       id: 'divide', title: 'Two from one', start: null,
       beats: [
         {
-          cam: 'cellwide', speed: 70, inset: 'cycle', until: (m) => m.s.phase === 'M', maxWait: 80,
-          text: 'Time-lapse. Over the next day, the cell keeps growing, copies its DNA and doubles its organelles. Chloroplasts divide by pinching in two, squeezed by a ring of FtsZ protein inherited from their bacterial ancestors.',
+          cam: 'cellwide', speed: 25, inset: 'cycle', until: (m) => m.s.phase === 'M', untilNow: true, maxWait: 80, enter: (a) => { a.model.cycleHold = false; },
+          draw: (a, ctx) => drawGhost(a, ctx),
+          text: 'Time-lapse. The cell has grown enough to commit to division. It copies its DNA, keeps growing and doubles its organelles. Chloroplasts divide by pinching in two, squeezed by a ring of FtsZ protein inherited from their bacterial ancestors.',
         },
         {
           cam: (a) => view({ x: a.scene.outline.cx, y: a.scene.outline.cy }, a.scene.outline.H * 3.2), speed: 2, inset: 'cycle',
@@ -352,6 +459,7 @@
     get beat() { return this.chapters[this.ci].beats[this.bi]; }
 
     start(ci = 0) {
+      this.app.model.cycleHold = ci < this.chapters.length - 1;
       this.active = true;
       this.playing = true;
       this.goto(ci, 0);
@@ -361,7 +469,8 @@
       this.active = false;
       this.playing = false;
       const r = this.app.renderer;
-      r.focus = null; r.labels = [];
+      r.focus = null; r.labels = []; r.emph = null; r.tag = null; r.overlay = null;
+      this.app.model.cycleHold = false;
       this.app.setInset(null);
       this.app.setGroups(null);
     }
@@ -375,12 +484,26 @@
     }
 
     // Jumping into a chapter fast-forwards the clock to a fitting time of day.
+    // It only moves forward within the same day and never past a division
+    // (the cycle is held in G1 until the last chapter).
     _warpTo(st) {
       const m = this.app.model;
-      const inWin = (h) => (st.window[1] <= 24 ? h >= st.window[0] && h <= st.window[1] : h >= st.window[0] || h <= st.window[1] - 24);
-      if (inWin(m.hour())) return;
+      let w = st.window;
+      if (st.sunset) w = [m.sunset() - 0.6, m.sunset() - 0.15];
+      const h = m.hour();
+      if (h >= w[0] && h <= w[1]) return;
+      if (st.reset) {
+        m.reset();
+        m.cycleHold = true;
+        this.app.resetScene();
+        let g = 0;
+        while (m.hour() < w[0] && g < 400) { m.advance(1 / 30); g++; }
+        return;
+      }
+      const ahead = (w[0] - h + 24) % 24;
+      if (ahead > 14) return; // already past this part of the day: carry on from here
       let guard = 0;
-      while (!inWin(m.hour()) && guard < 2000) { m.advance(1 / 30); guard++; }
+      while (!(m.hour() >= w[0] && m.hour() <= w[1]) && guard < 1000) { m.advance(1 / 30); guard++; }
       this.app.particles.clear();
       this.app.flashNote(`Time-lapse to ${U.fmtClock(m.s.t).text}`);
     }
@@ -389,7 +512,14 @@
       const app = this.app, b = this.beat;
       this.t = 0;
       this.refs = b.ref ? b.ref(app) : this.refs;
+      if (b.enter) b.enter(app);
       this._camFor(b, 2.2);
+      app.insetStep = b.step || null;
+      const r = app.renderer;
+      r.emph = b.emph ? new Set(b.emph) : null;
+      r.tag = b.tag || null;
+      r.tagged = null;
+      r.overlay = b.draw ? (ctx) => { try { b.draw(app, ctx, this.refs); } catch (e) { /* subject gone (e.g. after division) */ } } : null;
       app.setInset(b.inset !== undefined ? b.inset : app.currentInset);
       app.setGroups(b.groups || null);
       app.setSpeed(b.speed != null ? b.speed : 2, true);
@@ -403,6 +533,7 @@
       let target;
       if (b.cam === 'cell') target = r.fitCell(1.25);
       else if (b.cam === 'cellwide') target = r.fitCell(1.6);
+      else if (b.cam === 'cellfixed') target = r.fitCell(1.6);
       else if (b.cam === 'wide') target = r.fitCell(2.3);
       else {
         const v = typeof b.cam === 'function' ? b.cam(app, this.refs) : b.cam;
@@ -459,7 +590,7 @@
       if (b.until) {
         const ok = b.until(this.app.model);
         ready = (ready && ok) || this.t > minT + (b.maxWait || 30);
-        if (ok && this.t >= minT) ready = true;
+        if (ok && (this.t >= minT || b.untilNow)) ready = true;
       }
       if (ready && !b.end) this.next();
       else if (ready && b.end && this.t > minT + 4) { this.playing = false; this.app.onStoryChange && this.app.onStoryChange(); }

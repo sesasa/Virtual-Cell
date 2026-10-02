@@ -102,6 +102,14 @@
       requestAnimationFrame((t) => this.loop(t));
     }
 
+    resetScene() {
+      this.scene.seed += 3;
+      this.scene._build();
+      this.scene.update(0); // compute organelle positions before anything picks them
+      this.particles.clear();
+      this.diaryDirty = true;
+    }
+
     // ---------- story hooks ----------
     setInset(name) {
       this.currentInset = name || null;
@@ -208,16 +216,19 @@
       };
       $('btnReset').onclick = () => {
         this.model.reset();
-        this.scene.seed += 3;
-        this.scene._build();
-        this.particles.clear();
+        this.model.cycleHold = this.story.active;
+        this.resetScene();
         this.diaryDirty = true;
         const f = this.renderer.fitCell(1.25);
         this.renderer.cam.flyTo(f.x, f.y, f.z, 1);
         if (this.story.active) this.story.goto(0, 0);
       };
       $('insetPick').onchange = (e) => this.setInset(e.target.value || null);
-      $('insetClose').onclick = () => this.setInset(null);
+      $('insetClose').onclick = (e) => { e.stopPropagation(); this.setInset(null); };
+      // On phones the close-up starts collapsed to its title bar; tap to open.
+      if (window.innerWidth < 560) $('insetBox').classList.add('mini');
+      document.querySelector('.inset-head').onclick = () => $('insetBox').classList.toggle('mini');
+      $('narrText').onclick = () => $('narration').classList.toggle('open');
       // View controls.
       const zoomBy = (k) => { const c = this.renderer.cam; c.flyTo(c.x, c.y, U.clamp(c.z * k, 0.4, 40), 0.4); };
       $('zoomIn').onclick = () => zoomBy(1.6);
@@ -284,6 +295,7 @@
       $('modeExplore').setAttribute('aria-selected', String(explore));
       if (explore) {
         this.story.stop();
+        this.insetStep = null;
         this.setSpeed(10);
         const f = this.renderer.fitCell(1.25);
         this.renderer.cam.flyTo(f.x, f.y, f.z, 1);
@@ -308,6 +320,12 @@
       const box = $('info');
       this.infoKind = hit.kind;
       box.hidden = false;
+      // Place the card beside the clicked structure, not on top of it.
+      const vw = this.renderer.cw, vh = this.renderer.ch;
+      const cardW = Math.min(320, vw - 28);
+      const left = sx + 24 + cardW < vw - 10 ? sx + 24 : Math.max(10, sx - 24 - cardW);
+      box.style.left = `${left}px`;
+      box.style.top = `${U.clamp(sy - 80, 60, Math.max(60, vh - 260))}px`;
       box.innerHTML = `<h3>${info.title}</h3><p>${info.text}</p><dl id="infoStats"></dl><div class="row">${info.inset ? '<button class="btn" id="infoInset">Show close-up</button>' : ''}<button class="btn" id="infoZoom">Zoom here</button><button class="btn" id="infoClose">Close</button></div>`;
       this._infoStats();
       if (info.inset) $('infoInset').onclick = () => this.setInset(info.inset);
@@ -353,6 +371,7 @@
       g.fillRect(0, 0, VC.Insets.W, VC.Insets.H);
       this.model._cpVisible = this.scene.layout.chloroplasts.length;
       ins.draw(g, time, this.model);
+      if (this.insetStep && ins.steps && ins.steps[this.insetStep]) VC.Insets.spot(g, ins.steps[this.insetStep], time);
     }
 
     _updateUI() {

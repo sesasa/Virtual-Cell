@@ -62,4 +62,4 @@ This is a teaching model, not a research model. Concentrations are coarse,
 regulatory networks are reduced to a few signals, and the 2-D section stands in
 for a 3-D cell. Organelles are close to true size; transporters and molecules
 are drawn much larger than life so they can be seen, and each moving molecule
-stands for very many. Molecules move in real time while the clock runs faster.
+stands for very many. Molecules move in real time while the clock runs faster. Growth (about 2–3% per hour) and the cell cycle run roughly twice as fast as in a typical leaf so that a division fits in the story.

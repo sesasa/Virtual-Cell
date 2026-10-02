@@ -400,6 +400,8 @@
       const s = this.s;
       const rel = s.V / s.Vb;
       s.phaseT += dt;
+      // The story holds the cycle in G1 until its last chapter, so the viewer sees the division.
+      if (this.cycleHold && s.phase === 'G1') return;
       if (s.phase === 'G1') {
         // CYCD3 (cyclin D) is induced by sucrose: sugar gates the G1/S transition.
         if (rel >= 1.3 && sN > 0.3) this._enter('S', 'DNA replication begins (G1 → S)');

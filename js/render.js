@@ -154,6 +154,8 @@
       for (const n of sc.neighbors) this._neighbor(ctx, n, px);
       this._cell(ctx, px, dt);
       this._particles(ctx, px);
+      if (this.overlay) this.overlay(ctx);
+      this._tag(ctx, px);
 
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       // Sun shafts.
@@ -558,7 +560,7 @@
       ctx.save();
       ctx.translate(mi.x, mi.y);
       ctx.rotate(mi.a);
-      const l = mi.len / 2, w = 4.6;
+      const l = mi.len / 2, w = 3.4; // ~0.7 µm thick
       U.roundRect(ctx, -l, -w, l * 2, w * 2, w);
       ctx.fillStyle = U.mix(C.mito, '#c4683a', respK * 0.6);
       ctx.fill();
@@ -828,14 +830,30 @@
     _particles(ctx, px) {
       const T = TYPES();
       const r = Math.min(9, 3 + 1.5 * Math.log2(Math.max(1, this.cam.z))) * px * 1.1;
+      const emph = this.emph;
       for (const p of this.particles.list) {
         if (p.delay > 0) continue;
         const q = U.samplePath(p.path, p.s);
         const wob = Math.sin(p.age * 6 + p.ph) * p.wob;
         const x = q.x - Math.sin(q.a) * wob, y = q.y + Math.cos(q.a) * wob;
-        const a = 1 - p.fade;
+        p.x = x; p.y = y;
+        const hi = emph && emph.has(p.type);
+        const a = (1 - p.fade) * (emph && !hi ? 0.35 : 1);
+        if (hi && p.type !== 'photon') {
+          // Comet trail so the eye can follow the route.
+          ctx.globalAlpha = 0.35 * (1 - p.fade);
+          ctx.strokeStyle = T[p.type].color;
+          ctx.lineWidth = r * 0.9;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (let k = 0; k <= 6; k++) {
+            const qq = U.samplePath(p.path, Math.max(0, p.s - k * 5));
+            if (k) ctx.lineTo(qq.x, qq.y); else ctx.moveTo(x, y);
+          }
+          ctx.stroke();
+        }
         ctx.globalAlpha = a;
-        this._glyph(ctx, p.type, x, y, r * p.size, q.a, T[p.type].color, p.age);
+        this._glyph(ctx, p.type, x, y, r * p.size * (hi ? 1.9 : 1), q.a, T[p.type].color, p.age);
       }
       ctx.globalAlpha = 1;
       for (const b of this.particles.bursts) {
@@ -933,6 +951,32 @@
       }
     }
 
+    // A caption chip that rides along with one molecule of the named type.
+    _tag(ctx, px) {
+      const tg = this.tag;
+      if (!tg) return;
+      let p = this.tagged;
+      if (!p || p.dead || p.arrived || p.type !== tg.type) {
+        const sc = this.toScreen.bind(this);
+        p = this.particles.list.find((q) => q.type === tg.type && !q.arrived && q.delay <= 0 && q.s < q.path.total * 0.4 && q.x != null && (() => { const s = sc(q.x, q.y); return s.x > 40 && s.x < this.cw - 120 && s.y > 60 && s.y < this.ch - 60; })());
+        this.tagged = p || null;
+      }
+      if (!p || p.x == null) return;
+      ctx.save();
+      ctx.font = `600 ${12 * px}px "IBM Plex Sans", system-ui, sans-serif`;
+      const w = ctx.measureText(tg.text).width + 12 * px, h = 18 * px;
+      const bx = p.x + 10 * px, by = p.y - 24 * px;
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = px;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(bx, by + h); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 9 * px, 0, U.TAU); ctx.stroke();
+      U.roundRect(ctx, bx, by, w, h, 5 * px);
+      ctx.fillStyle = 'rgba(6,16,18,0.9)'; ctx.fill();
+      ctx.strokeStyle = VC.Particles.TYPES[tg.type].color; ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle';
+      ctx.fillText(tg.text, bx + 6 * px, by + h / 2);
+      ctx.restore();
+    }
+
     // Dim everything except the story's focus targets.
     _spotlight(ctx, dt) {
       const want = this.focus && this.focus.targets && this.focus.targets.length ? 1 : 0;
@@ -1012,7 +1056,7 @@
     _scaleBar(ctx) {
       const um = [1, 2, 5, 10, 20].find((u) => u * 10 * this.S > 70) || 20;
       const len = um * 10 * this.S;
-      const x = 18, y = this.ch - 22;
+      const x = 18 + this.safe.l, y = this.ch - this.safe.b - 16;
       ctx.strokeStyle = 'rgba(230,245,235,0.85)';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.moveTo(x + len, y - 4); ctx.lineTo(x + len, y + 4); ctx.stroke();
@@ -1032,7 +1076,7 @@
         const u = dx * c - dy * s, v = dx * s + dy * c;
         return (u * u) / (rx * rx) + (v * v) / (ry * ry) <= 1;
       };
-      for (const mi of L.mitochondria) if (within(mi, mi.len / 2 + 2, 7, mi.a)) return { kind: 'mito', obj: mi };
+      for (const mi of L.mitochondria) if (within(mi, mi.len / 2 + 2, 6, mi.a)) return { kind: 'mito', obj: mi };
       for (const p of L.peroxisomes) if (within(p, p.r + 2, p.r + 2)) return { kind: 'perox', obj: p };
       for (const g of L.golgi) if (within(g, 12, 8, g.a)) return { kind: 'golgi', obj: g };
       for (const c of L.chloroplasts) if (within(c, c.len / 2, c.wid / 2 + 1, c.a)) return { kind: 'chloroplast', obj: c };

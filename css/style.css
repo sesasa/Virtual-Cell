@@ -224,10 +224,24 @@ body.explore .narration { display: none; }
   .narr-text { font-size: 15px; }
 }
 @media (max-width: 560px) {
-  .brand-sub { display: none; }
-  .inset { top: 10px; right: 10px; width: calc(100% - 20px); }
+  .topbar { padding: 6px 10px; gap: 8px; }
+  .brand-sub, #limChip { display: none; }
+  .brand h1 { font-size: 15px; }
+  .brand-mark { width: 22px; height: 15px; }
+  .status { margin-left: 0; }
+  .clock { font-size: 12px; padding: 2px 8px; }
+  .chip { font-size: 11px; padding: 2px 8px; }
+  .mode button { padding: 4px 10px; font-size: 13px; }
+  .stage { grid-template-rows: minmax(560px, 82vh) auto; }
+  .inset { top: 8px; right: 8px; width: calc(100% - 16px); padding: 6px 8px; }
+  .inset.mini #inset { display: none; }
+  .inset.mini .inset-head { margin-bottom: 0; }
+  .inset-head { cursor: pointer; }
   .legend { display: none; }
-  .narration { left: 10px; bottom: 10px; width: calc(100% - 20px); padding: 10px 12px; }
+  .narration { left: 8px; bottom: 8px; width: calc(100% - 16px); padding: 10px 12px 8px; }
+  .narr-text { font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 0; cursor: pointer; }
+  .narration.open .narr-text { -webkit-line-clamp: unset; display: block; }
+  .chapters { display: none; }
   .viewctl { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
