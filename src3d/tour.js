@@ -11,6 +11,8 @@ const lim = (m) => ({ light: 'the amount of light', rubisco: 'how fast Rubisco c
 // Camera helpers in terms of world objects.
 const cp = (w) => w.heroCp.pos;
 const around = (target, off) => ({ target: target.clone(), pos: target.clone().add(off) });
+// A chloroplast on the floor of the cell near the cut, for the nitrogen stop.
+const nitroCp = (w) => w.nitroCp || (w.nitroCp = w.chloroplasts.filter((c) => c.n.y < -0.9 && c.pos.z < 0 && c.pos.z > -6).sort((a, b) => Math.abs(a.pos.x) - Math.abs(b.pos.x))[0] || w.heroCp);
 const sinkShare = (m, v) => v / Math.max(1e-6, Object.values(m.carbonFlows().sinks).reduce((a, b) => a + b, 0));
 
 export const STOPS = [
@@ -50,7 +52,7 @@ export const STOPS = [
   },
   {
     ch: 'It starts with light', speed: 1.5, inset: 'thylakoid', step: 'psii', emph: ['o2'], tag: 'o2',
-    cam: (w) => ({ target: w.hero.localToWorld(w.granaPos[5].clone()), pos: w.hero.localToWorld(w.granaPos[5].clone()).add(V(-0.3, 1.9, 0.9)) }), fly: 3,
+    cam: (w) => ({ target: w.hero.localToWorld(w.granaPos[5].clone()), pos: w.hero.localToWorld(w.granaPos[5].clone()).add(V(0, 3.4, 1.0)) }), fly: 3,
     focus: (w) => ({ p: cp(w), r: 8 }),
     text: 'In these membranes, light splits water. Photosystem II pulls electrons out of water molecules and releases oxygen, which drifts out of the cell. The oxygen you breathe was released this way.',
   },
@@ -62,14 +64,15 @@ export const STOPS = [
   // ------------------------------------------------------------------ C
   {
     ch: 'Sugar is made', speed: 2, inset: 'calvin', step: 'co2', emph: ['co2'], tag: 'co2',
-    cam: (w) => around(cp(w), V(3, 2.5, 6.5)), fly: 3, focus: (w) => ({ p: cp(w), r: 10 }),
-    text: (m) => `Meanwhile carbon dioxide diffuses in from the air spaces, through the wall and into the chloroplast. Air holds only about ${m.env.co2} CO₂ molecules per million, so the cell has to work hard to catch it.`,
+    cam: (w) => around(cp(w), V(3, 4, -11)), fly: 4, focus: (w) => ({ p: cp(w), r: 12 }),
+    labels: (w) => [{ p: cp(w).clone().add(V(4, 2, -6)), text: 'Air space', sub: 'outside the cell' }, { p: cp(w).clone().add(V(-2.5, 1, -2.2)), text: 'Cell wall' }],
+    text: (m) => `Meanwhile, seen here from the air space outside the cell, carbon dioxide diffuses through the wall and into the chloroplast. Air holds only about ${m.env.co2} CO₂ molecules per million, so the cell has to work hard to catch it.`,
   },
   {
     ch: 'Sugar is made', speed: 2, inset: 'calvin', step: 'rubisco', emph: ['co2', 'triose'],
-    cam: (w) => around(cp(w), V(-1.0, 3.2, 1.4)), fly: 3, focus: (w) => ({ p: cp(w), r: 8 }),
+    cam: (w) => around(cp(w), V(-0.4, 3.6, 1.2)), fly: 4, focus: (w) => ({ p: cp(w), r: 8 }),
     text: 'In the stroma, the enzyme Rubisco grabs each CO₂ and fixes it onto a five-carbon sugar. ATP and NADPH from the thylakoids then turn the product into a three-carbon sugar: triose phosphate. This is the first sugar.',
-    labels: (w) => [{ p: w.hero.localToWorld(V(-1.6, 0.2, -0.5)), text: 'Rubisco', sub: 'in the stroma, ~3 CO₂ per second each' }],
+    labels: (w) => [{ p: w.hero.localToWorld(V(-0.9, -0.55, 0)), text: 'Stroma: Rubisco works here', sub: 'each enzyme fixes ~3 CO₂ per second' }],
   },
   {
     ch: 'Sugar is made', speed: 2, inset: 'calvin', step: 'reduce',
@@ -78,7 +81,7 @@ export const STOPS = [
   },
   {
     ch: 'Sugar is made', speed: 2.5, inset: 'allocation',
-    cam: (w) => ({ target: w.starchGrains[0].getWorldPosition(V()), pos: w.starchGrains[0].getWorldPosition(V()).add(V(0.3, 2.0, 0.9)) }), fly: 3,
+    cam: (w) => ({ target: w.starchGrains[0].getWorldPosition(V()), pos: w.starchGrains[0].getWorldPosition(V()).add(V(0.2, 2.6, 0.7)) }), fly: 3,
     focus: (w) => ({ p: cp(w), r: 8 }),
     text: (m) => `Some of the new sugar stays put, packed into starch grains that swell through the day. It is a lunchbox for the night. Right now ${pct(m.f.fs)} of the new carbon goes into starch.`,
     labels: (w) => [{ p: w.starchGrains[0].getWorldPosition(V()), text: 'Starch grain', sub: 'grows by day, shrinks by night' }],
@@ -92,7 +95,7 @@ export const STOPS = [
   {
     ch: 'Where the sugar goes', speed: 2.5, inset: 'mito', emph: ['sugar', 'atp'], tag: 'sugar',
     cam: (w) => around(w.heroMitoG.position, V(0.3, 3.0, 1.3)), fly: 3.5, focus: (w) => ({ p: w.heroMitoG.position, r: 10 }),
-    text: 'From here sucrose is carried to several destinations. Some goes to mitochondria like this one, cut open to show its folded inner membranes. There it is burned with oxygen to make ATP, the cell’s spendable energy.',
+    text: 'From here, sugar is shared among several destinations. Some is split in the cytosol (glycolysis), and the pieces, pyruvate, are burned with oxygen in mitochondria like this one, cut open to show its folded inner membranes. The result is ATP, the cell’s spendable energy.',
     labels: (w) => [{ p: w.heroMitoG.position.clone(), text: 'Mitochondrion', sub: 'cristae: folded inner membrane' }],
   },
   {
@@ -113,9 +116,9 @@ export const STOPS = [
   },
   {
     ch: 'Where the sugar goes', speed: 2.5, inset: 'allocation', emph: ['sugar'], tag: 'sugar',
-    cam: (w) => ({ pos: V(w.h.x - 9, 4, 7), target: V(w.h.x, -1, -4) }), fly: 4, focus: (w) => ({ p: V(w.h.x - 2, 0, -4), r: 14 }),
-    text: (m) => `And much of it leaves. Plasmodesmata, tiny channels through the wall, pass sucrose into neighbouring cells on its way to the veins and the rest of the plant. Right now ${pct(sinkShare(m, m.f.export))} of the carbon this cell uses is exported.`,
-    labels: (w) => [{ p: w.pdPoint().p, text: 'Plasmodesmata', sub: 'channels to the next cell' }],
+    cam: (w) => ({ pos: V(w.h.x - 14, 9, 16), target: V(w.h.x + 4, 0, -3) }), fly: 4, focus: (w) => ({ p: V(w.h.x - 2, 0, -4), r: 14 }),
+    text: (m) => `And much of it leaves. Plasmodesmata, tiny channels through the wall, pass sucrose into the neighbouring cell (beyond the wall) on its way to the veins, where it is loaded into the phloem and carried to the rest of the plant. Right now ${pct(sinkShare(m, m.f.export))} of the carbon this cell uses is exported.`,
+    labels: (w) => { const pd = w.pds.find((q) => q.n.x > 0.9); return [{ p: pd.norm.clone().multiply(w.h), text: 'Plasmodesmata', sub: 'channels to the next cell' }, { p: V(w.h.x + 12, 4, -2), text: 'Neighbouring cell' }]; },
   },
   // ------------------------------------------------------------------ E
   {
@@ -126,8 +129,9 @@ export const STOPS = [
   },
   {
     ch: 'Costs and supplies', speed: 2.5, inset: 'nitrogen', emph: ['nitrate', 'aa'], tag: 'nitrate',
-    cam: (w) => ({ pos: V(-4, -w.h.y + 7, 14), target: V(-2, -w.h.y + 1, -3) }), fly: 4, focus: (w) => ({ p: V(-2, -w.h.y + 1, -3), r: 16 }),
-    text: 'Sugar alone cannot build proteins: they also need nitrogen. Nitrate from the roots crosses the membrane on transporter proteins. Inside the chloroplasts it is reduced to ammonium with energy from light, then built into amino acids (green).',
+    cam: (w) => { const c = nitroCp(w); return around(c.pos, V(1, 6, 9)); }, fly: 4, focus: (w) => ({ p: nitroCp(w).pos, r: 12 }),
+    labels: (w) => { const c = nitroCp(w); return [{ p: c.pos.clone().add(V(-3, -1.3, 0)), text: 'Plasma membrane', sub: 'nitrate transporters' }, { p: c.pos.clone(), text: 'Chloroplast' }]; },
+    text: 'Sugar alone cannot build proteins: they also need nitrogen. Nitrate from the roots crosses the membrane on transporter proteins. In the cytosol it is reduced to nitrite; inside the chloroplast, nitrite becomes ammonium using energy from light, and is built into amino acids (green).',
   },
   // ------------------------------------------------------------------ F
   {
@@ -139,13 +143,13 @@ export const STOPS = [
   {
     ch: 'The instructions', speed: 2.5, inset: 'expression', emph: ['protein', 'mrna'], tag: 'protein',
     cam: (w) => ({ pos: w.nucleus.position.clone().add(V(9, 6, 16)), target: w.nucleus.position.clone().add(V(9, 0, 0)) }), fly: 4, focus: (w) => ({ p: w.nucleus.position.clone().add(V(8, 0, 0)), r: 16 }),
-    text: (m) => `Ribosomes translate the messages into proteins. Many are imported back into the chloroplasts, including the small subunit of Rubisco. Right now ${pct(m.s.phi.photo)} of new protein goes to photosynthesis.`,
+    text: (m) => `Ribosomes translate the messages into proteins. Many are imported into the chloroplasts, including the small subunit of Rubisco. Right now ${pct(m.s.phi.photo)} of new protein goes to photosynthesis.`,
   },
   // ------------------------------------------------------------------ G
   {
     ch: 'Night', speed: 12, inset: 'starch', until: (m) => m.f.I < 1, maxWait: 40,
     cam: (w) => ({ pos: V(10, 9, 58 + (w.h.x - 22)), target: V(0, -2, -5) }), fly: 4,
-    text: 'The day wears on. As the sun sets, the light reactions stop and the chloroplasts dim. The starch grains are now at their largest.',
+    text: 'Time-lapse to evening. As the sun sets, the light reactions stop and the chloroplasts dim. The starch grains are now at their largest.',
   },
   {
     ch: 'Night', speed: 6, inset: 'starch', emph: ['maltose', 'sugar'], tag: 'maltose',
@@ -157,21 +161,22 @@ export const STOPS = [
     ch: 'Growth and division', speed: 30, inset: 'cycle', until: (m) => m.s.phase === 'M', untilNow: true, maxWait: 60,
     enter: (app) => { app.model.cycleHold = false; },
     cam: (w) => ({ pos: V(14, 12, 66 + 1.3 * (w.h.x - 22)), target: V(0, -1, -5) }), fly: 4, follow: 'cell',
-    text: 'Time-lapse. Over the next day the cell keeps growing, mostly by filling its vacuole with water, so it lengthens along one axis. It copies its DNA and doubles its organelles.',
+    text: 'Time-lapse. In a young, still-expanding leaf like this one, cells keep dividing. Over the next day the cell grows, mostly by filling its vacuole with water, so it lengthens along one axis, and it copies its DNA.',
   },
   {
     ch: 'Growth and division', speed: 1.6, inset: 'cycle', until: (m) => { const s = m.mSubphase(); return !s || s.name === 'telophase'; }, maxWait: 60,
-    cam: (w) => around(V(0, 0, -w.h.z * 0.25), V(4, 6, 24)), fly: 3,
-    text: 'When it is large enough, it divides. The nucleus moves to the middle, the chromosomes condense, and spindle fibres pull the two copies of each chromosome apart.',
+    cam: (w) => around(V(0, 0, -2.5), V(5, 10, 40)), fly: 3,
+    text: 'When it is large enough, it divides. A band of microtubules rings the cell where the new wall will go. The nucleus moves to the middle, the chromosomes condense, and a barrel-shaped spindle pulls the two copies of each chromosome apart.',
   },
   {
     ch: 'Growth and division', speed: 2, inset: 'cycle', until: (m) => m.s.phase !== 'M', maxWait: 60,
-    cam: (w) => around(V(0, 0, -w.h.z * 0.1), V(10, 8, 34)), fly: 3,
+    cam: (w) => around(V(0, 0, -2.5), V(10, 10, 38)), fly: 3,
     text: 'A plant cell cannot pinch in two, because of its wall. Instead it builds a new wall, the cell plate, from the middle outward until it meets the old one.',
   },
   {
     ch: 'Growth and division', speed: 3, inset: 'allocation', end: true,
-    cam: (w) => ({ pos: V(40, 26, 80), target: V(0, -2, -6) }), fly: 5,
+    cam: (w) => ({ pos: V(w.h.x + 14, 24, 78), target: V(w.h.x, -2, -4) }), fly: 5,
+    labels: (w) => [{ p: V(0, 2, -3), text: 'Daughter cell' }, { p: V(2 * w.h.x + 2, 2, -3), text: 'Sister cell' }],
     text: 'Two cells, each starting again. This is how a leaf is built: sunlight into sugar, sugar into the next cell. Now explore freely: drag to look around, scroll to zoom, and click anything to learn what it does.',
   },
 ];

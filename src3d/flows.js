@@ -5,20 +5,20 @@ import * as THREE from 'three';
 import { clamp } from './geom.js';
 
 export const TYPES = {
-  o2: { color: 0x9fe4ff, size: 0.2, label: 'O₂' },
-  co2: { color: 0xe3ecef, size: 0.2, label: 'CO₂' },
-  h2o: { color: 0x58a8ff, size: 0.17, label: 'water' },
-  triose: { color: 0xffbe55, size: 0.2, label: 'triose phosphate' },
-  sugar: { color: 0xff9a1f, size: 0.28, label: 'sucrose' },
-  maltose: { color: 0xffe3a8, size: 0.24, label: 'maltose' },
-  glycolate: { color: 0xff6fb5, size: 0.22, label: 'glycolate' },
-  atp: { color: 0xfff6a0, size: 0.15, label: 'ATP' },
-  nitrate: { color: 0xc09aff, size: 0.21, label: 'nitrate' },
-  aa: { color: 0x6af0a8, size: 0.2, label: 'amino acid' },
-  mrna: { color: 0xff5a5a, size: 0.2, label: 'mRNA' },
-  protein: { color: 0x4fd0ff, size: 0.22, label: 'protein' },
-  vesicle: { color: 0xfff0d8, size: 0.3, label: 'vesicle' },
-  k: { color: 0xf7a2cb, size: 0.17, label: 'K⁺' },
+  o2: { color: 0x9fe4ff, size: 0.09, label: 'O₂' },
+  co2: { color: 0xe3ecef, size: 0.09, label: 'CO₂' },
+  h2o: { color: 0x58a8ff, size: 0.077, label: 'water' },
+  triose: { color: 0xffbe55, size: 0.09, label: 'triose phosphate' },
+  sugar: { color: 0xff9a1f, size: 0.126, label: 'sucrose' },
+  maltose: { color: 0xffe3a8, size: 0.108, label: 'maltose' },
+  glycolate: { color: 0xff6fb5, size: 0.099, label: 'glycolate' },
+  atp: { color: 0xfff6a0, size: 0.068, label: 'ATP' },
+  nitrate: { color: 0xc09aff, size: 0.095, label: 'nitrate' },
+  aa: { color: 0x6af0a8, size: 0.09, label: 'amino acid' },
+  mrna: { color: 0xff5a5a, size: 0.09, label: 'mRNA' },
+  protein: { color: 0x4fd0ff, size: 0.099, label: 'protein' },
+  vesicle: { color: 0xfff0d8, size: 0.135, label: 'vesicle' },
+  k: { color: 0xf7a2cb, size: 0.077, label: 'K⁺' },
 };
 const MAX = 220;
 
@@ -35,7 +35,7 @@ export class Flows {
     this.inst = {};
     const geo = new THREE.SphereGeometry(1, 12, 8);
     for (const [k, t] of Object.entries(TYPES)) {
-      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(t.color).multiplyScalar(1.6), toneMapped: false, transparent: true, opacity: 0.95, clippingPlanes: [world.cut] });
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(t.color), toneMapped: false, transparent: true, opacity: 0.95, clippingPlanes: [world.cut] });
       const im = new THREE.InstancedMesh(geo, mat, MAX);
       im.count = 0;
       im.frustumCulled = false;
@@ -251,8 +251,8 @@ export class Flows {
       const hi = this.emph && this.emph.has(p.type);
       // Keep tokens a sensible size on screen: smaller when the camera is close.
       const dc = camPos ? camPos.distanceTo(p.pos) : 20;
-      const near = clamp((dc - 0.8) / 1.5, 0, 1);
-      const sz = near * clamp(dc / 18, 0.12, 1) * TYPES[p.type].size * (hi ? 1.8 + 0.25 * Math.sin(time * 6 + p.len) : this.emph ? 0.7 : 1);
+      const near = clamp((dc - 1.2) / 1.6, 0, 1);
+      const sz = near * clamp(dc / 10, 0.5, 6) * TYPES // roughly constant on-screen size[p.type].size * (hi ? 1.8 + 0.25 * Math.sin(time * 6 + p.len) : this.emph ? 0.7 : 1);
       o.position.copy(p.pos); o.scale.setScalar(sz); o.updateMatrix();
       im.setMatrixAt(i, o.matrix);
       counts[p.type] = i + 1;

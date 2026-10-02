@@ -9,7 +9,6 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { makeTextures } from './textures.js';
 import { World } from './world.js';
 import { Flows, TYPES } from './flows.js';
@@ -18,6 +17,22 @@ import { ease, clamp } from './geom.js';
 import { INFO } from './info.js';
 
 const VC = window.VC;
+
+// Soft image-based light from inside a leaf: bright green-white above, dim below.
+function leafEnvironment() {
+  const scene = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(10, 32, 16);
+  const col = [], pos = geo.attributes.position;
+  const top = new THREE.Color(0xe8f6d8), mid = new THREE.Color(0x5f8f58), low = new THREE.Color(0x0c1c14);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / 10;
+    const c = y > 0 ? mid.clone().lerp(top, y) : mid.clone().lerp(low, -y);
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  return scene;
+}
 const $ = (id) => document.getElementById(id);
 
 // Film grade: vignette, gentle grain and a hint of lens chromatic aberration.
@@ -61,7 +76,7 @@ class App3D {
     this.tex = makeTextures();
     this.world = new World(this.model, this.tex);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.world.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.world.scene.environment = pmrem.fromScene(leafEnvironment(), 0.04).texture;
     this.world.scene.environmentIntensity = 0.55;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.05, 900);
@@ -81,7 +96,7 @@ class App3D {
     this.composer.addPass(new RenderPass(this.world.scene, this.camera));
     this.bokeh = new BokehPass(this.world.scene, this.camera, { focus: 60, aperture: 0.00025, maxblur: 0.006 });
     this.composer.addPass(this.bokeh);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.55, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.25, 0.4, 0.95);
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);
@@ -176,16 +191,37 @@ class App3D {
       this.camera.position.copy(this.base.target).add(off);
       this.controls.target.copy(this.base.target);
     }
+    this._frame(dt);
     this.controls.update();
     // Inside the vacuole its glassy skin would fog the view: hide it there.
     const w = this.world, d = w.box.sdf(this.camera.position);
     w.vacuole.visible = d > -3.2;
     w.cytoMat.opacity = d < 0 ? 0.1 : 0.32;
     w.pm.visible = d > -0.5;
+    w.heroOpen = d < 0;
     // Focus pulls to the subject.
     const fd = this.camera.position.distanceTo(this.controls.target);
     this.bokeh.uniforms.focus.value = fd;
     this.bokeh.uniforms.aperture.value = this.dof ? 0.0005 / Math.max(3, fd) : 0;
+  }
+
+  // Shift the projection so the subject sits in the area not covered by the
+  // narration card (bottom) and close-up panel (right).
+  _frame(dt) {
+    const narr = $('narration'), ins = $('insetBox');
+    const wide = this.vw > 760;
+    let tx = 0, ty = 0;
+    if (this.tour.active && narr.offsetHeight) ty = Math.min(this.vh * 0.16, (narr.offsetHeight + 20) * 0.35);
+    if (wide && !ins.hidden && !ins.classList.contains('mini')) tx = Math.min(this.vw * 0.14, (ins.offsetWidth + 20) * 0.28);
+    this.off = this.off || { x: 0, y: 0 };
+    const k = 1 - Math.exp(-dt * 3);
+    this.off.x += (tx - this.off.x) * k;
+    this.off.y += (ty - this.off.y) * k;
+    const W = this.vw, H = this.vh;
+    this.camera.setViewOffset(W + 2 * this.off.x, H + 2 * this.off.y, 2 * this.off.x, 2 * this.off.y, W, H);
+    // In portrait, pull the camera back so wide shots still fit.
+    this.camera.fov = this.camera.aspect < 1 ? 42 / Math.max(0.55, this.camera.aspect) : 42;
+    this.camera.updateProjectionMatrix();
   }
 
   setCut(open, dur) {
@@ -376,6 +412,8 @@ class App3D {
     this.tour.update(dt);
     this._camera(dt, t);
     this.grade.uniforms.time.value = t;
+    const day = Math.min(1, (this.model.f.I || 0) / 600);
+    this.renderer.toneMappingExposure = 0.62 + 0.3 * day;
     if (!this.skipRender) this.composer.render();
     this._labels();
     this._drawInset(t);
@@ -403,7 +441,9 @@ class App3D {
       if (!L) { el.style.display = 'none'; return; }
       const s = this._project(L.p);
       if (s.behind || s.x < -20 || s.y < -20 || s.x > this.vw + 20 || s.y > this.vh + 20) { el.style.display = 'none'; return; }
+      if (this._covered(s.x, s.y)) { el.style.display = 'none'; return; }
       el.style.display = '';
+      el.classList.toggle('flip', s.x > this.vw - 240);
       el.style.transform = `translate(${s.x}px, ${s.y}px)`;
       el.querySelector('b').textContent = L.text;
       el.querySelector('small').textContent = L.sub || '';
@@ -422,6 +462,16 @@ class App3D {
       }
     }
     chip.hidden = true;
+  }
+
+  _covered(x, y) {
+    for (const id of ['narration', 'insetBox', 'hud', 'drawer']) {
+      const el = $(id);
+      if (!el || el.hidden || !el.offsetParent) continue;
+      const r = el.getBoundingClientRect(), v = $('viewport').getBoundingClientRect();
+      if (x > r.left - v.left - 8 && x < r.right - v.left + 8 && y > r.top - v.top - 8 && y < r.bottom - v.top + 8) return true;
+    }
+    return false;
   }
 
   _drawInset(t) {
@@ -448,6 +498,12 @@ class App3D {
       hSugar: (s.suc + s.vsug).toFixed(0), hP: f.P.toFixed(2), hV: (s.V / 1000).toFixed(1),
     };
     for (const k in vals) $(k).textContent = vals[k];
+    // Scale bar for the distance to the subject.
+    const d = this.camera.position.distanceTo(this.controls.target);
+    const pxPerUm = this.vh / (2 * d * Math.tan((this.camera.fov * Math.PI) / 360));
+    const um = [0.5, 1, 2, 5, 10, 20, 50].find((u) => u * pxPerUm > 60) || 50;
+    $('scaleBar').style.width = `${Math.round(um * pxPerUm)}px`;
+    $('scaleLabel').textContent = `${um} µm`;
     if (this.tour.active) {
       $('narrBar').style.width = `${Math.round(this.tour.progress() * 100)}%`;
       const txt = this.tour.text();

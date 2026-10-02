@@ -57,6 +57,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 
 .hud { position: absolute; left: 14px; top: 12px; display: grid; grid-template-columns: repeat(3, auto); gap: 6px 14px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(6px); }
 .hud div { display: grid; grid-template-columns: auto; }
+.hud-note { grid-column: 1 / -1; margin: 2px 0 0; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.hud .hud-note span { text-transform: none; letter-spacing: 0; font-size: 11px; }
+.hud-note i { display: inline-block; height: 4px; border: 1.5px solid #eaf5ec; border-top: 0; min-width: 10px; }
+.lbl.flip span { left: auto; right: 30px; }
+.lbl.flip i::after { transform: rotate(-145deg); }
 .hud span { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .hud b { font: 500 15px var(--f-data); font-variant-numeric: tabular-nums; }
 .hud small { font-size: 10px; color: var(--muted); }
@@ -122,11 +127,14 @@ select.btn { background: #0b1a1a; }
   .hud { grid-template-columns: repeat(3, auto); top: auto; bottom: auto; left: 8px; top: 8px; padding: 6px 8px; gap: 2px 10px; }
   .hud small { display: none; }
   .hud b { font-size: 13px; }
-  .inset { top: 78px; right: 8px; width: calc(100% - 16px); }
+  .inset { top: 132px; right: 8px; width: calc(100% - 16px); }
+  .hud-note { display: none; }
+  .hud { grid-template-columns: repeat(3, minmax(0, auto)); }
+  .chapters { display: flex; overflow-x: auto; flex-wrap: nowrap; max-width: 100%; }
+  .chapters button { flex: none; }
   .narration { left: 8px; bottom: 8px; width: calc(100% - 16px); padding: 10px 12px 8px; }
   .narr-text { font-size: 15px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; min-height: 0; }
   .narration.open .narr-text { display: block; }
-  .chapters { display: none; }
   .drawer { left: 8px; right: 8px; width: auto; bottom: 8px; max-height: 50%; overflow-y: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .narr-text.fade { animation: none; } .spinner { animation: none; } }

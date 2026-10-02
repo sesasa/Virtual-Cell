@@ -6,6 +6,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundBox, roundBoxGeometry, blobGeometry, capsuleGeometry, alignY, rng, clamp, lerp } from './geom.js';
+import { drawChloroplastSection, drawMitoSection } from './textures.js';
+
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 const BASE = new THREE.Vector3(22, 13, 13);
 const RADIUS = 6;
@@ -82,16 +85,16 @@ export class World {
     const t = this.tex;
     this.neighbors = new THREE.Group();
     const wallMat = new THREE.MeshPhysicalMaterial({
-      color: 0x9fc4ad, map: t.wallColor, normalMap: t.wallNormal, normalScale: new THREE.Vector2(0.25, 0.25),
-      roughness: 0.6, transparent: true, opacity: 0.5, depthWrite: false, sheen: 0.4, sheenColor: new THREE.Color(0xbff5c0), envMapIntensity: 0.5,
+      color: 0xc9d6bf, map: t.wallColor, normalMap: t.wallNormal, normalScale: new THREE.Vector2(0.15, 0.15),
+      roughness: 0.75, transparent: true, opacity: 0.45, depthWrite: false, envMapIntensity: 0.5,
     });
     const cpGeo = blobGeometry(2.75, 0.9, 1.7, 3, 0.05, 20);
-    const cpMat = new THREE.MeshStandardMaterial({ color: 0x2f7a32, roughness: 0.5, emissive: 0x0c2a0a });
+    const cpMat = new THREE.MeshStandardMaterial({ color: 0x3c8a32, roughness: 0.6, emissive: 0x0c2a0a, emissiveIntensity: 0.1 });
     this.neighborCp = cpMat;
     const spec = [
-      [-48, 2, -2, 20, 12, 12], [48, -3, 0, 21, 13, 12], [0, 31, -4, 23, 13, 12], [3, -31, -2, 22, 12, 12],
-      [-46, 30, -6, 19, 12, 11], [46, 30, -4, 20, 11, 12], [-45, -30, -3, 20, 12, 12], [46, -32, -2, 21, 12, 12],
-      [-22, 2, -32, 22, 13, 13], [24, 0, -33, 22, 13, 13], [0, 30, -34, 22, 12, 12], [0, -30, -33, 21, 12, 12],
+      [-50, 4, -3, 20, 12, 12], [44.8, 0, 0, 21, 13, 12], [-4, 34, -6, 23, 12, 11], [6, -34, -3, 22, 12, 12],
+      [-54, 36, -9, 19, 11, 11], [52, 34, -6, 20, 11, 12], [-52, -34, -5, 20, 12, 12], [52, -36, -4, 21, 12, 12],
+      [-24, 4, -35, 22, 13, 12], [26, -2, -36, 22, 13, 12], [0, 36, -38, 22, 12, 12], [2, -34, -37, 21, 12, 12],
     ];
     const rand = rng(11);
     for (const [x, y, z, hx, hy, hz] of spec) {
@@ -114,6 +117,7 @@ export class World {
       inst.castShadow = true;
       g.add(inst);
       g.userData.kind = 'neighbor';
+      g.userData.size = new THREE.Vector3(hx, hy, hz);
       this.neighbors.add(g);
     }
     this.scene.add(this.neighbors);
@@ -128,9 +132,8 @@ export class World {
     this.cell.add(this.envelope);
 
     const wallMat = new THREE.MeshPhysicalMaterial({
-      color: 0xb4cfbd, map: t.wallColor, normalMap: t.wallNormal, normalScale: new THREE.Vector2(0.9, 0.9),
-      roughness: 0.55, transparent: true, opacity: 0.5, depthWrite: false,
-      sheen: 0.6, sheenColor: new THREE.Color(0xd8ffe0), clearcoat: 0.3, clearcoatRoughness: 0.4,
+      color: 0xdfe4d4, map: t.wallColor, normalMap: t.wallNormal, normalScale: new THREE.Vector2(0.15, 0.15),
+      roughness: 0.7, transparent: true, opacity: 0.42, depthWrite: false,
       side: THREE.DoubleSide, clippingPlanes: clip, envMapIntensity: 0.7,
     });
     t.wallColor.repeat.set(2, 1.3); t.wallNormal.repeat.set(2, 1.3);
@@ -141,7 +144,7 @@ export class World {
 
     // Plasma membrane: thin, glossy, slightly golden.
     const pmMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf1f7d8, roughness: 0.15, transparent: true, opacity: 0.22, clearcoat: 1, side: THREE.DoubleSide,
+      color: 0xf1f7d8, roughness: 0.45, transparent: true, opacity: 0.16, side: THREE.DoubleSide,
       normalMap: t.bumpNormal, normalScale: new THREE.Vector2(0.3, 0.3), clippingPlanes: clip, depthWrite: false,
     });
     this.pm = new THREE.Mesh(roundBoxGeometry(this.box, 0), pmMat);
@@ -159,8 +162,8 @@ export class World {
 
     // Tonoplast and vacuole: a clear, watery compartment.
     const vacMat = new THREE.MeshPhysicalMaterial({
-      color: 0xbfe6ff, roughness: 0.05, transmission: 0.95, thickness: 6, ior: 1.33, transparent: true, opacity: 0.35,
-      clearcoat: 1, side: THREE.DoubleSide, clippingPlanes: clip, depthWrite: false, envMapIntensity: 1.2,
+      color: 0xd6eef5, roughness: 0.12, transmission: 0.95, thickness: 6, ior: 1.33, transparent: true, opacity: 0.3,
+      clearcoat: 0.2, side: THREE.DoubleSide, clippingPlanes: clip, depthWrite: false, envMapIntensity: 1.2,
       attenuationColor: new THREE.Color(0x9fdcff), attenuationDistance: 60,
     });
     this.vacMat = vacMat;
@@ -194,14 +197,14 @@ export class World {
     this.nucleus = new THREE.Group();
     this.nucleus.position.copy(this.nucHome);
     const env = new THREE.Mesh(blobGeometry(4.6, 4.1, 3.8, 9, 0.04, 64), new THREE.MeshPhysicalMaterial({
-      color: 0x7a63c9, roughness: 0.35, transparent: true, opacity: 0.8,
-      clearcoat: 0.6, normalMap: t.bumpNormal, normalScale: new THREE.Vector2(0.4, 0.4), clippingPlanes: clip, envMapIntensity: 0.8,
+      color: 0xa79bbd, roughness: 0.55, transparent: true, opacity: 0.55,
+      clearcoat: 0.1, normalMap: t.bumpNormal, normalScale: new THREE.Vector2(0.4, 0.4), clippingPlanes: clip, envMapIntensity: 0.8,
     }));
     env.castShadow = true;
     env.userData.kind = 'nucleus';
     this.nucEnv = env;
     this.nucleus.add(env);
-    const nucleolus = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 20), new THREE.MeshStandardMaterial({ color: 0xc6a8ff, emissive: 0x3a2270, roughness: 0.5, clippingPlanes: clip }));
+    const nucleolus = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 20), new THREE.MeshStandardMaterial({ color: 0x6f5a8e, roughness: 0.7, clippingPlanes: clip }));
     nucleolus.position.set(1.1, 0.6, 0.8);
     this.nucleolus = nucleolus;
     this.nucleus.add(nucleolus);
@@ -213,11 +216,11 @@ export class World {
       cp.push(v.x * 4.0, v.y * 3.6, v.z * 3.3);
     }
     cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
-    this.chromatin = new THREE.Points(cg, new THREE.PointsMaterial({ color: 0xb6a2ff, size: 0.22, map: t.sprite, transparent: true, opacity: 0.55, depthWrite: false, clippingPlanes: clip }));
+    this.chromatin = new THREE.Points(cg, new THREE.PointsMaterial({ color: 0x4a3c66, size: 0.3, map: t.sprite, transparent: true, opacity: 0.7, depthWrite: false, clippingPlanes: clip }));
     this.nucleus.add(this.chromatin);
     // Nuclear pores.
     const poreGeo = new THREE.TorusGeometry(0.075, 0.03, 6, 12);
-    const pores = new THREE.InstancedMesh(poreGeo, new THREE.MeshStandardMaterial({ color: 0xf0e8ff, emissive: 0x4a3a80, roughness: 0.4, clippingPlanes: clip }), 500);
+    const pores = new THREE.InstancedMesh(poreGeo, new THREE.MeshStandardMaterial({ color: 0x9a8fb0, roughness: 0.6, clippingPlanes: clip }), 500);
     const o = new THREE.Object3D();
     for (let i = 0; i < 500; i++) {
       const v = new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize();
@@ -246,9 +249,9 @@ export class World {
     // Chloroplasts appressed to the cell periphery (dart throwing for spacing).
     this.cpGeo = blobGeometry(2.75, 0.9, 1.7, 21, 0.05, 32);
     this.cpMat = new THREE.MeshPhysicalMaterial({
-      color: 0x58b34a, map: t.cpColor, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.35,
-      sheen: 0.6, sheenColor: new THREE.Color(0xb8ff98),
-      emissive: 0x1e5a14, emissiveIntensity: 0.2, clippingPlanes: clip, envMapIntensity: 0.6,
+      color: 0x4f9e3c, map: t.cpColor, roughness: 0.58, clearcoat: 0.12, clearcoatRoughness: 0.5,
+      sheen: 0.5, sheenColor: new THREE.Color(0x9ee880),
+      emissive: 0x1a3a12, emissiveIntensity: 0.05, clippingPlanes: clip, envMapIntensity: 0.6,
     });
     const cps = [];
     let tries = 0;
@@ -271,7 +274,7 @@ export class World {
 
     // Mitochondria wander through the cytoplasm (streaming).
     this.mitoGeo = capsuleGeometry(1.7, 0.33, 14);
-    this.mitoMat = new THREE.MeshPhysicalMaterial({ color: 0xd9824e, roughness: 0.45, clearcoat: 0.5, sheen: 0.5, sheenColor: new THREE.Color(0xffc49a), emissive: 0x3a1206, emissiveIntensity: 0.3, clippingPlanes: clip });
+    this.mitoMat = new THREE.MeshPhysicalMaterial({ color: 0xc8784a, roughness: 0.6, clearcoat: 0.1, sheen: 0.5, sheenColor: new THREE.Color(0xffc49a), emissive: 0x3a1206, emissiveIntensity: 0.3, clippingPlanes: clip });
     this.mitos = [];
     for (let i = 0; i < 90; i++) this.mitos.push(this._newWalker(rand, 0.6 + rand() * 1.6, 1.8 + rand() * 1.8));
     this.mitoInst = new THREE.InstancedMesh(this.mitoGeo, this.mitoMat, this.mitos.length);
@@ -280,7 +283,7 @@ export class World {
     this.org.add(this.mitoInst);
 
     // Peroxisomes sit next to chloroplasts.
-    this.peroxMat = new THREE.MeshPhysicalMaterial({ color: 0xb59cf0, roughness: 0.3, clearcoat: 0.7, emissive: 0x2a1a50, emissiveIntensity: 0.4, clippingPlanes: clip });
+    this.peroxMat = new THREE.MeshPhysicalMaterial({ color: 0xa996d0, roughness: 0.55, clearcoat: 0.1, emissive: 0x2a1a50, emissiveIntensity: 0.4, clippingPlanes: clip });
     this.perox = [];
     for (let i = 0; i < 40; i++) {
       const c = this.chloroplasts[(i * 7) % this.chloroplasts.length];
@@ -294,7 +297,7 @@ export class World {
     // Golgi stacks: cup-shaped cisternae.
     const cisGeo = new THREE.SphereGeometry(1.1, 24, 8, 0, Math.PI * 2, 0, 0.55);
     cisGeo.scale(1, 0.35, 1);
-    this.golgiMat = new THREE.MeshPhysicalMaterial({ color: 0xf2c766, roughness: 0.35, clearcoat: 0.6, emissive: 0x3d2a05, emissiveIntensity: 0.3, side: THREE.DoubleSide, clippingPlanes: clip });
+    this.golgiMat = new THREE.MeshPhysicalMaterial({ color: 0xe0bc6a, roughness: 0.55, clearcoat: 0.1, emissive: 0x3d2a05, emissiveIntensity: 0.3, side: THREE.DoubleSide, clippingPlanes: clip });
     this.golgi = [];
     for (let i = 0; i < 18; i++) {
       let p;
@@ -315,7 +318,7 @@ export class World {
       const curve = box.shellPath(a, b, 1.0 + rand() * 1.2, 6);
       tubes.push(new THREE.TubeGeometry(curve, 24, 0.09, 6));
     }
-    this.erMat = new THREE.MeshPhysicalMaterial({ color: 0x5cc7b8, roughness: 0.3, transparent: true, opacity: 0.75, clearcoat: 0.5, emissive: 0x0b3a34, emissiveIntensity: 0.4, clippingPlanes: clip });
+    this.erMat = new THREE.MeshPhysicalMaterial({ color: 0x7fbfb0, roughness: 0.55, transparent: true, opacity: 0.45, emissive: 0x0b3a34, emissiveIntensity: 0.15, clippingPlanes: clip });
     this.er = new THREE.Mesh(mergeGeometries(tubes), this.erMat);
     this.er.userData.kind = 'er';
     this.org.add(this.er);
@@ -338,12 +341,15 @@ export class World {
     this.org.add(this.granules);
 
     // Plasmodesmata: channels through the wall in pit fields where neighbours touch.
-    const pdGeo = new THREE.CylinderGeometry(0.12, 0.12, WALL + 0.6, 10);
-    const pdMat = new THREE.MeshStandardMaterial({ color: 0x5cc7b8, emissive: 0x0e4a40, roughness: 0.4, clippingPlanes: clip });
+    const pdGeo = new THREE.CylinderGeometry(0.05, 0.05, WALL + 0.15, 8); // ~0.1 µm channels (drawn ~2× real width)
+    const pdMat = new THREE.MeshStandardMaterial({ color: 0x3f7f72, emissive: 0x0a2a24, roughness: 0.6, clippingPlanes: clip });
     const faces = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1)];
     this.pds = [];
-    for (const f of faces) for (let k = 0; k < 14; k++) {
-      const p = f.clone().multiply(BASE).add(new THREE.Vector3((rand() - 0.5) * 3, (rand() - 0.5) * 3, (rand() - 0.5) * 3).projectOnPlane(f));
+    for (const f of faces) for (let k = 0; k < 16; k++) {
+      // A pit field: a small grid of channels about 0.3 µm apart.
+      const u = new THREE.Vector3(f.y !== 0 ? 1 : 0, f.y !== 0 ? 0 : 1, 0).projectOnPlane(f).normalize();
+      const v = new THREE.Vector3().crossVectors(f, u);
+      const p = f.clone().multiply(BASE).addScaledVector(u, ((k % 4) - 1.5) * 0.32).addScaledVector(v, (Math.floor(k / 4) - 1.5) * 0.32);
       const q = box.project(p, -WALL / 2);
       this.pds.push({ norm: q.clone().divide(BASE), n: f.clone() });
     }
@@ -399,7 +405,8 @@ export class World {
 
   // ---------------------------------------------------------------- hero organelles (cut open)
   _heroChloroplast() {
-    // Choose a chloroplast on the back wall, low and left of centre.
+    // A chloroplast on the back wall, low and near the middle, sliced through
+    // its long axis so the section face shows grana, lamellae and starch.
     const cand = this.chloroplasts.filter((c) => c.n.z < -0.9 && c.pos.y < -2 && c.pos.y > -9 && c.pos.x > -4 && c.pos.x < 10);
     const hero = cand[0] || this.chloroplasts[0];
     this.heroCp = hero;
@@ -407,80 +414,51 @@ export class World {
     const g = new THREE.Group();
     this.hero = g;
     const planes = [this.cut, this.heroCut];
-    const env = new THREE.MeshPhysicalMaterial({ color: 0x7fd86a, roughness: 0.3, transparent: true, opacity: 0.2, clearcoat: 0.6, side: THREE.DoubleSide, clippingPlanes: planes, depthWrite: false });
-    const outer = new THREE.Mesh(this.cpGeo, env);
-    const inner = new THREE.Mesh(this.cpGeo, env.clone());
-    inner.scale.setScalar(0.94);
-    g.add(outer, inner);
-    const stroma = new THREE.Mesh(this.cpGeo, new THREE.MeshPhysicalMaterial({ color: 0x1d4f1a, roughness: 0.8, transparent: true, opacity: 0.75, side: THREE.BackSide, clippingPlanes: planes }));
-    stroma.scale.setScalar(0.92);
-    g.add(stroma);
-    // Grana: stacks of thylakoid discs (edge-on in the cut).
-    const disc = new THREE.CylinderGeometry(0.26, 0.26, 0.042, 28);
-    const nStacks = 11, nDisc = 9;
-    this.granaMat = new THREE.MeshPhysicalMaterial({ color: 0x8ff06a, roughness: 0.3, clearcoat: 0.7, emissive: 0x4fdc32, emissiveIntensity: 0.5, clippingPlanes: [this.cut] });
-    const grana = new THREE.InstancedMesh(disc, this.granaMat, nStacks * nDisc);
-    const o = new THREE.Object3D();
-    const r = rng(3);
-    this.granaPos = [];
-    for (let s = 0; s < nStacks; s++) {
-      const x = -2.1 + (4.2 * (s + 0.5)) / nStacks + (r() - 0.5) * 0.2;
-      const z = (r() - 0.5) * 0.12; // centred on the cut so each stack is bisected
-      const yc = -0.1 + (r() - 0.5) * 0.15;
-      this.granaPos.push(new THREE.Vector3(x, yc, z));
-      for (let k = 0; k < nDisc; k++) {
-        o.position.set(x, yc - 0.32 + k * 0.08, z);
-        o.updateMatrix();
-        grana.setMatrixAt(s * nDisc + k, o.matrix);
-      }
-    }
-    g.add(grana);
-    // Stroma lamellae linking the stacks.
-    const lam = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.022, 0.14), new THREE.MeshStandardMaterial({ color: 0x9cf07c, emissive: 0x2a8a20, transparent: true, opacity: 0.8, clippingPlanes: [this.cut] }));
-    for (const y of [-0.28, -0.05, 0.18]) { const l = lam.clone(); l.position.y = y; g.add(l); }
-    // Starch grains (size follows the model).
-    this.starchGrains = [];
-    const sMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf3df, roughness: 0.3, clearcoat: 0.8, sheen: 0.5, clippingPlanes: [this.cut] });
-    for (const [x, z] of [[-1.25, 0.05], [0.45, -0.08], [1.55, 0.1]]) {
-      const m = new THREE.Mesh(blobGeometry(0.55, 0.3, 0.42, x * 10 + 50, 0.06, 24), sMat);
-      m.position.set(x, 0.12, z);
-      g.add(m);
-      this.starchGrains.push(m);
-    }
-    // Plastoglobuli and Rubisco-rich stroma speckle.
-    const pg = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd36b, emissive: 0x5a3a00, clippingPlanes: [this.cut] }), 14);
-    for (let i = 0; i < 14; i++) { o.position.set((r() - 0.5) * 4.4, (r() - 0.5) * 0.9, (r() - 0.5) * 2.4); o.updateMatrix(); pg.setMatrixAt(i, o.matrix); }
-    g.add(pg);
-    const sp = [];
-    for (let i = 0; i < 1400; i++) {
-      const v = new THREE.Vector3(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1);
-      if (v.x * v.x + v.y * v.y + v.z * v.z > 0.8) { i--; continue; }
-      sp.push(v.x * 2.6, v.y * 0.8, v.z * 1.55);
-    }
-    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
-    this.rubisco = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xd8ffc8, size: 0.05, transparent: true, opacity: 0.5, clippingPlanes: [this.cut, this.heroCut], depthWrite: false }));
-    g.add(this.rubisco);
+    // Lower half of the body (the cut-away removes the half facing the camera).
+    const body = new THREE.Mesh(this.cpGeo, new THREE.MeshPhysicalMaterial({
+      color: 0x4f9c3e, map: this.tex.cpColor, roughness: 0.55, sheen: 0.4, sheenColor: new THREE.Color(0xa8f090),
+      clippingPlanes: planes, side: THREE.DoubleSide,
+    }));
+    g.add(body);
+    // Section face: local XY plane (local z → world y, the cut direction).
+    this.cpSectionCanvas = document.createElement('canvas');
+    this.cpSectionCanvas.width = 1024; this.cpSectionCanvas.height = 340;
+    drawChloroplastSection(this.cpSectionCanvas, 0.1);
+    this.cpSectionTex = new THREE.CanvasTexture(this.cpSectionCanvas);
+    this.cpSectionTex.colorSpace = THREE.SRGBColorSpace;
+    this.cpSectionTex.anisotropy = 8;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(2 * 2.75, 2 * 0.9), new THREE.MeshStandardMaterial({
+      map: this.cpSectionTex, roughness: 0.75, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, clippingPlanes: [this.cut],
+    }));
+    face.position.z = -0.004;
+    g.add(face);
+    this.cpFace = face;
+    this.lastStarchDrawn = -1;
+    // Reference points on the section for labels and camera aims (local coords).
+    this.granaPos = [V3(-1.4, 0.3, 0), V3(-0.4, -0.25, 0), V3(0.6, 0.2, 0), V3(1.5, -0.2, 0), V3(-0.9, 0.1, 0), V3(0.2, 0.3, 0)];
+    this.starchLocal = [V3(-0.42 * 2.71, 0.05 * 0.86, 0), V3(0.12 * 2.71, 0.12 * 0.86, 0)];
+    this.starchGrains = this.starchLocal.map((p) => { const o = new THREE.Object3D(); o.position.copy(p); g.add(o); return o; });
     g.traverse((m) => { if (m.isMesh) m.userData.kind = 'chloroplast'; });
     this.org.add(g);
   }
 
   _heroMito() {
-    // A mitochondrion parked beside the hero chloroplast, cut open to show cristae.
+    // A mitochondrion (~2 µm) parked beside the hero chloroplast, sliced lengthwise.
     const g = new THREE.Group();
     this.heroMitoG = g;
     const planes = [this.cut, this.mitoCut];
-    const outer = new THREE.Mesh(capsuleGeometry(2.4, 0.5, 28), new THREE.MeshPhysicalMaterial({ color: 0xe8935a, roughness: 0.35, clearcoat: 0.8, transparent: true, opacity: 0.55, side: THREE.DoubleSide, clippingPlanes: planes, depthWrite: false }));
-    const inner = new THREE.Mesh(capsuleGeometry(2.25, 0.44, 28), new THREE.MeshPhysicalMaterial({ color: 0xa8481e, roughness: 0.6, side: THREE.BackSide, clippingPlanes: planes }));
-    g.add(outer, inner);
-    const crista = new THREE.BoxGeometry(0.028, 0.62, 0.5);
-    const cm = new THREE.MeshPhysicalMaterial({ color: 0xffbf8a, roughness: 0.4, emissive: 0x5a2008, emissiveIntensity: 0.6, clippingPlanes: [this.cut] });
-    for (let k = 0; k < 13; k++) {
-      const c = new THREE.Mesh(crista, cm);
-      c.position.x = -0.95 + k * 0.16;
-      c.scale.set(1, 0.5 + (k % 2) * 0.35, 1);
-      c.position.y = (k % 2 ? 0.12 : -0.12);
-      g.add(c);
-    }
+    const L = 2.0, R = 0.36;
+    const body = new THREE.Mesh(capsuleGeometry(L, R, 28), new THREE.MeshPhysicalMaterial({ color: 0xc8784a, roughness: 0.55, sheen: 0.4, sheenColor: new THREE.Color(0xffc49a), side: THREE.DoubleSide, clippingPlanes: planes }));
+    g.add(body);
+    const cv = document.createElement('canvas');
+    cv.width = 600; cv.height = 216;
+    drawMitoSection(cv);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(L, 2 * R), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, clippingPlanes: [this.cut] }));
+    face.rotation.x = -Math.PI / 2; // lie in the local XZ plane (the cut)
+    face.position.y = -0.004;
+    g.add(face);
     g.traverse((m) => { if (m.isMesh) m.userData.kind = 'mito'; });
     this.org.add(g);
   }
@@ -501,15 +479,51 @@ export class World {
     }
     this.chromosomes.visible = false;
     this.cell.add(this.chromosomes);
+    // Plant spindle: barrel-shaped, with broad poles (no centrosomes).
     const sp = [];
-    for (let k = 0; k < 40; k++) {
-      const a = (k / 40) * Math.PI * 2, r = 3;
-      sp.push(-5, 0, 0, 0, Math.cos(a) * r, Math.sin(a) * r, 5, 0, 0, 0, Math.cos(a) * r, Math.sin(a) * r);
+    for (let k = 0; k < 48; k++) {
+      const a = (k / 48) * Math.PI * 2;
+      const py = Math.cos(a), pz = Math.sin(a);
+      for (const sx of [-1, 1]) {
+        const pts = [];
+        for (let j = 0; j <= 8; j++) {
+          const u = j / 8; // 0 at pole, 1 at equator
+          const rad = 1.4 + 1.8 * Math.sin((u * Math.PI) / 2);
+          pts.push(new THREE.Vector3(sx * 5 * (1 - u), py * rad, pz * rad));
+        }
+        for (let j = 0; j < 8; j++) sp.push(pts[j].x, pts[j].y, pts[j].z, pts[j + 1].x, pts[j + 1].y, pts[j + 1].z);
+      }
     }
     const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
-    this.spindle = new THREE.LineSegments(sg, new THREE.LineBasicMaterial({ color: 0x7fe7fa, transparent: true, opacity: 0.55, clippingPlanes: clip }));
+    const mtMat = new THREE.LineBasicMaterial({ color: 0x9fe9f5, transparent: true, opacity: 0.5, clippingPlanes: clip });
+    this.spindle = new THREE.LineSegments(sg, mtMat);
     this.spindle.visible = false;
     this.cell.add(this.spindle);
+    // Preprophase band: a ring of cortical microtubules marking the future wall.
+    const ring = [];
+    const N = 160;
+    for (let k = 0; k < N; k++) {
+      for (const dx of [-0.6, -0.2, 0.2, 0.6]) {
+        const a0 = (k / N) * Math.PI * 2, a1 = ((k + 1) / N) * Math.PI * 2;
+        const p0 = this.box.project(new THREE.Vector3(dx, Math.cos(a0) * 20, Math.sin(a0) * 20), 0.25);
+        const p1 = this.box.project(new THREE.Vector3(dx, Math.cos(a1) * 20, Math.sin(a1) * 20), 0.25);
+        ring.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+      }
+    }
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(ring, 3));
+    this.ppb = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0x9fe9f5, transparent: true, opacity: 0.9, clippingPlanes: clip }));
+    this.ppb.visible = false;
+    this.cell.add(this.ppb);
+    // Phragmoplast: short antiparallel microtubules at the growing edge of the plate.
+    const ph = [];
+    for (let k = 0; k < 120; k++) {
+      const a = (k / 120) * Math.PI * 2;
+      for (const sx of [-1, 1]) ph.push(0, Math.cos(a), Math.sin(a), sx * 1.2, Math.cos(a) * 0.96, Math.sin(a) * 0.96);
+    }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(ph, 3));
+    this.phragmoplast = new THREE.LineSegments(pg, mtMat.clone());
+    this.phragmoplast.visible = false;
+    this.cell.add(this.phragmoplast);
   }
 
   // ---------------------------------------------------------------- per-frame update
@@ -525,6 +539,13 @@ export class World {
     this.neighbors.children.forEach((n, i) => {
       if (n.userData.x0 === undefined) n.userData.x0 = n.position.x;
       const x0 = n.userData.x0;
+      if (i === 1 && s.gen > 1) {
+        // The sister cell from the last division sits against the new wall.
+        const sz = n.userData.size;
+        n.scale.set(this.h.x / sz.x, this.h.y / sz.y, this.h.z / sz.z);
+        n.position.set(2 * this.h.x + 2 * WALL, 0, 0);
+        return;
+      }
       n.position.x = Math.abs(x0) > 30 ? x0 + Math.sign(x0) * (this.h.x - BASE.x) : x0 * (this.h.x / BASE.x);
     });
     // Cut plane.
@@ -532,15 +553,16 @@ export class World {
 
     // Light.
     const I = f.I || 0, day = clamp(I / 1100, 0, 1);
-    this.sun.intensity = 0.25 + 3.0 * day;
+    this.sun.intensity = 0.05 + 3.0 * day;
     this.sun.color.setHSL(0.11, 0.6, 0.55 + 0.35 * day);
-    this.hemi.intensity = 0.45 + 0.6 * day;
+    this.hemi.intensity = 0.12 + 0.8 * day;
+    this.hemi.color.setHSL(lerp(0.62, 0.42, day), 0.45, lerp(0.45, 0.8, day)); // moonlit blue at night
+    this.rim.intensity = 0.25 + 0.55 * day;
     this.shafts.children.forEach((p, i) => { p.material.opacity = 0.03 + 0.13 * day * (0.8 + 0.2 * Math.sin(this.time * 0.3 + i)); });
-    this.cpMat.emissiveIntensity = 0.1 + 0.45 * day;
-    this.granaMat.emissiveIntensity = 0.15 + 0.8 * day * (0.85 + 0.15 * Math.sin(this.time * 3));
-    this.neighborCp.emissiveIntensity = 0.3 + day;
+    this.cpMat.emissiveIntensity = 0.03 + 0.07 * day;
+    this.neighborCp.emissiveIntensity = 0.05 + 0.25 * day;
     this.mitoMat.emissiveIntensity = 0.2 + clamp((f.resp || 0) / 2.2, 0, 1) * 0.6;
-    this.fill.intensity = 4 + 10 * day;
+    this.fill.intensity = 1 + 10 * day;
 
     const o = new THREE.Object3D();
     // Chloroplasts (+ subtle light-avoidance tilt and flash).
@@ -563,12 +585,18 @@ export class World {
     const hc = this.heroCp;
     this.hero.position.copy(hc.pos);
     alignY(this.hero, hc.n, 0);
-    this.heroCut.constant = hc.pos.y; // cut through the hero's middle (keeps y ≤ centre)
+    // Sliced open only when we look from inside the cell; whole from outside.
+    this.heroCut.constant = this.heroOpen === false ? 1e4 : hc.pos.y;
+    this.cpFace.visible = this.heroOpen !== false;
     this.heroCut.normal.set(0, -1, 0);
     // Starch grains scale with the per-chloroplast starch store.
+    // Redraw the section when the starch store has changed noticeably.
     const starchK = clamp(s.starch / 150, 0.03, 1.2);
-    this.starchGrains.forEach((g, i) => g.scale.setScalar(Math.pow(starchK, 0.45) * (1 - i * 0.15)));
-    this.rubisco.material.opacity = 0.25 + 0.4 * day;
+    if (Math.abs(starchK - this.lastStarchDrawn) > 0.04) {
+      this.lastStarchDrawn = starchK;
+      drawChloroplastSection(this.cpSectionCanvas, starchK);
+      this.cpSectionTex.needsUpdate = true;
+    }
 
     // Streaming organelles.
     const stream = s.phase === 'M' ? 0.3 : 1;
@@ -582,7 +610,7 @@ export class World {
     });
     this.mitoInst.instanceMatrix.needsUpdate = true;
     // Hero mitochondrion parked beside the hero chloroplast.
-    const side = new THREE.Vector3(1, 0.3, 0).projectOnPlane(hc.n).normalize();
+    const side = new THREE.Vector3(1, 0, 0).projectOnPlane(hc.n).normalize();
     this.heroMitoG.position.copy(hc.pos).addScaledVector(side, 4.4).addScaledVector(hc.n, -0.6);
     this.heroMitoG.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), side);
     this.mitoCut.normal.set(0, -1, 0);
@@ -624,13 +652,13 @@ export class World {
 
   _mitosis() {
     const m = this.model, sub = m.mSubphase();
-    const centre = new THREE.Vector3(0, 0, -this.h.z * 0.25);
+    const centre = new THREE.Vector3(0, 0, -2.5); // cell axis, just behind the cut
     let k = 0;
     if (sub) k = sub.name === 'preprophase' ? sub.prog : 1;
     this.nucleus.position.lerpVectors(this.nucHome.clone().multiply(new THREE.Vector3(this.h.x / BASE.x, 1, 1)), centre, k * k * (3 - 2 * k));
     this.pocket.position.copy(this.nucleus.position).add(new THREE.Vector3(0, 0, -0.8));
     const envVis = !sub || ['preprophase', 'prophase'].includes(sub.name) ? 1 : sub.name === 'prometaphase' ? 1 - sub.prog : 0;
-    this.nucEnv.material.opacity = 0.8 * envVis;
+    this.nucEnv.material.opacity = 0.55 * envVis;
     this.nucEnv.visible = envVis > 0.02;
     this.nucleolus.visible = !sub || sub.name === 'preprophase';
     this.chromatin.visible = !sub || ['preprophase', 'prophase'].includes(sub.name);
@@ -639,6 +667,9 @@ export class World {
     this.spindle.visible = !!sub && ['prometaphase', 'metaphase', 'anaphase'].includes(sub.name);
     this.spindle.position.copy(this.nucleus.position);
     this.plate.visible = !!sub && ['telophase', 'cytokinesis'].includes(sub.name);
+    this.ppb.visible = !!sub && ['preprophase', 'prophase'].includes(sub.name);
+    this.ppb.scale.set(1, 1, 1);
+    this.ppb.material.opacity = sub ? (sub.name === 'preprophase' ? 0.3 + 0.6 * sub.prog : 0.9 - 0.7 * sub.prog) : 0;
     if (showCh) {
       const P = this.nucleus.position;
       this.chromosomes.children.forEach((pair, i) => {
@@ -656,10 +687,14 @@ export class World {
     }
     if (this.plate.visible) {
       const reach = sub.name === 'cytokinesis' ? sub.prog : 0.1;
-      this.plate.position.set(0, 0, -this.h.z * 0.1);
+      this.plate.position.set(0, 0, -2.5);
       const R = 0.5 + reach * (this.h.y + 0.5);
       this.plate.scale.set(R, R * (this.h.z / this.h.y), 1);
-    }
+      // The phragmoplast rides the plate's growing rim.
+      this.phragmoplast.visible = true;
+      this.phragmoplast.position.copy(this.plate.position);
+      this.phragmoplast.scale.set(1, R, R * (this.h.z / this.h.y));
+    } else if (this.phragmoplast) this.phragmoplast.visible = false;
   }
 
   // Positions the tour and flows need.

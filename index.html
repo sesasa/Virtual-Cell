@@ -36,13 +36,14 @@
     <div class="labels" id="labels" aria-hidden="true"></div>
     <div class="tagchip" id="tagChip" hidden><i></i><span></span></div>
 
-    <div class="hud" aria-label="Live readings">
+    <div class="hud" id="hud" aria-label="Live readings">
       <div><span>Light</span><b id="hLight">0</b><small>µmol m⁻² s⁻¹</small></div>
       <div><span>Photosynthesis</span><b id="hA">0</b><small>µmol m⁻² s⁻¹</small></div>
       <div><span>Starch</span><b id="hStarch">0</b><small>pmol C</small></div>
       <div><span>Sugars</span><b id="hSugar">0</b><small>pmol C</small></div>
       <div><span>Turgor</span><b id="hP">0</b><small>MPa</small></div>
       <div><span>Volume</span><b id="hV">0</b><small>×10³ µm³</small></div>
+      <p class="hud-note"><i id="scaleBar"></i><span id="scaleLabel">10 µm</span> · each dot stands for many molecules</p>
     </div>
 
     <div class="inset" id="insetBox" hidden>
