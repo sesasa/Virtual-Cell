@@ -20,12 +20,12 @@ export const STOPS = [
   {
     ch: 'Into the leaf', speed: 0.4, cut: 'closed',
     cam: () => ({ pos: V(62, 34, 92), target: V(0, -2, -6) }), fly: 0.1,
-    text: 'We begin in the air spaces inside a leaf. Every green-studded box around us is a living cell. We will follow one of them through a day and see what it does with light.',
+    text: 'Here, deep inside a leaf, in the still air between its cells, a quiet revolution is about to begin. Each of these green chambers is a living cell. We shall follow just one of them, through a single day.',
   },
   {
     ch: 'Into the leaf', speed: 0.6, cut: 'open',
     cam: (w) => ({ pos: V(10, 9, 58 + (w.h.x - 22)), target: V(0, -2, -5) }), fly: 4,
-    text: 'Let’s cut it open. Under the wall is a thin film of living cytoplasm. Most of the volume is one clear sac of water, the vacuole. Chloroplasts line the walls, and the nucleus sits in a pocket at the back.',
+    text: 'To see inside, we must open it. Beneath the wall lies a thin film of living cytoplasm. Most of the cell is one vast, clear reservoir of water: the vacuole. Chloroplasts line the walls, and at the back, in its own pocket, sits the nucleus, keeper of the instructions.',
     labels: (w) => [
       { p: V(w.h.x - 0.5, w.h.y - 2, 0), text: 'Cell wall', sub: 'cellulose' },
       { p: V(3, 1, -3), text: 'Vacuole', sub: 'water, salts, sugar' },
@@ -37,7 +37,7 @@ export const STOPS = [
   {
     ch: 'It starts with light', speed: 1.5, inset: 'thylakoid', step: 'antenna',
     cam: (w) => around(cp(w), V(2.5, 4.5, 11)), fly: 4, focus: (w) => ({ p: cp(w), r: 14 }),
-    text: (m) => `It all starts here, in a chloroplast. Sunlight falling through the leaf (${Math.round(m.f.I)} µmol photons per m² per second right now) is absorbed by chlorophyll, and the chloroplast comes alive.`,
+    text: (m) => `It all starts here, in a chloroplast. As the sun rises, light filters through the leaf (${Math.round(m.f.I)} µmol photons per m² per second at this moment) and is captured by chlorophyll. For the cell, the day has begun.`,
     labels: (w) => [{ p: cp(w).clone(), text: 'Chloroplast', sub: '~5 µm long' }],
   },
   {
@@ -54,7 +54,7 @@ export const STOPS = [
     ch: 'It starts with light', speed: 1.5, inset: 'thylakoid', step: 'psii', emph: ['o2'], tag: 'o2',
     cam: (w) => ({ target: w.hero.localToWorld(w.granaPos[5].clone()), pos: w.hero.localToWorld(w.granaPos[5].clone()).add(V(0, 3.4, 1.0)) }), fly: 3,
     focus: (w) => ({ p: cp(w), r: 8 }),
-    text: 'In these membranes, light splits water. Photosystem II pulls electrons out of water molecules and releases oxygen, which drifts out of the cell. The oxygen you breathe was released this way.',
+    text: 'And here, in these membranes, something quite extraordinary happens. Light tears water apart. Photosystem II pulls electrons from water molecules, and releases oxygen, which drifts away out of the cell. Every breath you take began like this.',
   },
   {
     ch: 'It starts with light', speed: 1.5, inset: 'thylakoid', step: 'atp',
@@ -83,7 +83,7 @@ export const STOPS = [
     ch: 'Sugar is made', speed: 2.5, inset: 'allocation',
     cam: (w) => ({ target: w.starchGrains[0].getWorldPosition(V()), pos: w.starchGrains[0].getWorldPosition(V()).add(V(0.2, 2.6, 0.7)) }), fly: 3,
     focus: (w) => ({ p: cp(w), r: 8 }),
-    text: (m) => `Some of the new sugar stays put, packed into starch grains that swell through the day. It is a lunchbox for the night. Right now ${pct(m.f.fs)} of the new carbon goes into starch.`,
+    text: (m) => `Not all of this sugar is spent at once. Some is set aside, packed into starch grains that swell as the day goes on: provisions for the long night ahead. At this moment ${pct(m.f.fs)} of the new carbon is being saved.`,
     labels: (w) => [{ p: w.starchGrains[0].getWorldPosition(V()), text: 'Starch grain', sub: 'grows by day, shrinks by night' }],
   },
   {
@@ -124,7 +124,7 @@ export const STOPS = [
   {
     ch: 'Costs and supplies', speed: 2.5, inset: 'photoresp', emph: ['glycolate'], tag: 'glycolate',
     cam: (w) => around(cp(w).clone().add(V(1.5, 0, 0)), V(1.5, 5, 9)), fly: 3.5, focus: (w) => ({ p: cp(w), r: 9 }),
-    text: (m) => `Rubisco is not perfect. For every 100 CO₂ it fixes, it grabs about ${Math.round(m.f.voRatio * 100)} O₂ by mistake. Cleaning up takes a relay through a peroxisome (violet) and a mitochondrion, and loses ${pct(m.f.prLossFrac)} of the fixed carbon.`,
+    text: (m) => `Rubisco is not perfect. For every 100 CO₂ molecules it fixes, it grabs about ${Math.round(m.f.voRatio * 100)} O₂ molecules by mistake. Cleaning up takes a relay through a peroxisome (violet) and a mitochondrion, and loses ${pct(m.f.prLossFrac)} of the fixed carbon.`,
     labels: (w) => { const px = w.perox.reduce((a, b) => (b.pos && b.pos.distanceTo(cp(w)) < a.pos.distanceTo(cp(w)) ? b : a)); return [{ p: px.pos.clone(), text: 'Peroxisome' }]; },
   },
   {
@@ -149,7 +149,7 @@ export const STOPS = [
   {
     ch: 'Night', speed: 12, inset: 'starch', until: (m) => m.f.I < 1, maxWait: 40,
     cam: (w) => ({ pos: V(10, 9, 58 + (w.h.x - 22)), target: V(0, -2, -5) }), fly: 4,
-    text: 'Time-lapse to evening. As the sun sets, the light reactions stop and the chloroplasts dim. The starch grains are now at their largest.',
+    text: 'Time-lapse to evening. As the sun sinks, the light reactions fall silent and the chloroplasts dim. The starch grains have never been larger. Now the cell must live on its savings.',
   },
   {
     ch: 'Night', speed: 6, inset: 'starch', emph: ['maltose', 'sugar'], tag: 'maltose',
@@ -177,7 +177,7 @@ export const STOPS = [
     ch: 'Growth and division', speed: 3, inset: 'allocation', end: true,
     cam: (w) => ({ pos: V(w.h.x + 14, 24, 78), target: V(w.h.x, -2, -4) }), fly: 5,
     labels: (w) => [{ p: V(0, 2, -3), text: 'Daughter cell' }, { p: V(2 * w.h.x + 2, 2, -3), text: 'Sister cell' }],
-    text: 'Two cells, each starting again. This is how a leaf is built: sunlight into sugar, sugar into the next cell. Now explore freely: drag to look around, scroll to zoom, and click anything to learn what it does.',
+    text: 'And so, where there was one cell, there are now two, each ready to begin again. Sunlight into sugar, sugar into new life. It is in this quiet, patient way that a leaf is built. Now explore freely: drag to look around, scroll to zoom, and click anything to learn what it does.',
   },
 ];
 
@@ -237,11 +237,14 @@ export class Tour {
     }
     if (!this.playing) return;
     this.t += dt;
-    const minT = this.duration();
-    let ready = this.t >= minT;
+    const nar = this.app.narrator;
+    const voice = nar && nar.enabled && !nar.blocked;
+    // With a voice, the stop lasts as long as the speech (plus the camera flight).
+    const minT = voice ? Math.max(2.5, (s.fly || 0) * 0.8) : this.duration();
+    let ready = this.t >= minT && !(voice && nar.holding() && this.t < this.duration() + 45);
     if (s.until) {
       const ok = s.until(this.app.model);
-      ready = (ok && (this.t >= minT || s.untilNow)) || this.t > minT + (s.maxWait || 30);
+      ready = (ok && ((this.t >= minT && !(voice && nar.holding())) || s.untilNow)) || this.t > minT + (s.maxWait || 30) + (voice && nar.holding() ? 30 : 0);
     }
     if (ready && !s.end) this.next();
     else if (ready && s.end && this.t > minT + 3) { this.playing = false; this.app.onTourChange(); }

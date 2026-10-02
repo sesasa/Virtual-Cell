@@ -31,6 +31,11 @@ The narrated tour (26 stops, about 8½ minutes) follows the energy:
 7. **Night**: starch is drawn down at a clock-set pace.
 8. **Growth and division**: a time-lapse of elongation, mitosis and the cell plate.
 
+**Voice narration**: press *Voice* to have the tour read aloud in an unhurried
+nature-documentary style. It uses the browser's built-in speech voices (a British
+male voice is preferred where the device has one), and the tour waits for each
+passage to finish. The schematic view has the same button.
+
 Molecules flowing between organelles are driven by the simulation, so their
 numbers and routes change with the time of day and conditions. **Explore** mode
 lets you orbit freely, click any structure to identify it, and change light, CO₂,

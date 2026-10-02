@@ -246,6 +246,14 @@ body.explore .narration { display: none; }
   .chapters { display: none; }
   .viewctl { display: none; }
 }
+.voice { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.04); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.voice:hover { border-color: var(--leaf); color: var(--fg); }
+.voice.on { border-color: var(--amber); color: var(--amber); background: rgba(255, 184, 77, 0.1); }
+.voice:not(.on) .w1, .voice:not(.on) .w2 { opacity: 0.3; }
+.voice.on .w2 { animation: wave 1.6s ease-in-out infinite; }
+@keyframes wave { 50% { opacity: 0.25; } }
+
 @media (prefers-reduced-motion: reduce) {
+  .voice.on .w2 { animation: none; }
   .narr-text.fade { animation: none; }
 }

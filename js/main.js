@@ -75,6 +75,7 @@
       this.particles = new VC.Particles(this.scene);
       this.renderer = new VC.Renderer($('cell'), this.scene, this.model, this.particles);
       this.charts = new VC.Charts($('vitals'), this.model);
+      this.narrator = new VC.Narrator();
       this.story = new VC.Story(this);
       this.speed = 1;
       this.paused = false;
@@ -153,6 +154,29 @@
       $('btnPlay').textContent = st.playing ? '❚❚' : '▶';
       $('btnPlay').setAttribute('aria-label', st.playing ? 'Pause story' : 'Play story');
       [...$('chapterDots').children].forEach((b, i) => { b.classList.toggle('on', i === st.ci); b.classList.toggle('done', i < st.ci); });
+      const n = this.narrator, key = st.ci + '.' + st.bi;
+      if (n.enabled && st.playing && this.spoken !== key) { this.spoken = key; n.say(st.text()); }
+      else if (n.enabled && !st.playing) n.pause();
+      else if (n.enabled && st.playing) n.resume();
+    }
+
+    toggleVoice(on) {
+      const n = this.narrator;
+      n.blocked = false;
+      n.setEnabled(on);
+      this._voiceUI();
+      if (n.enabled && this.story.active) {
+        this.spoken = this.story.ci + '.' + this.story.bi;
+        this.story.t = 0;
+        n.say(this.story.text());
+      }
+    }
+
+    _voiceUI() {
+      const b = $('btnVoice'), on = this.narrator.enabled;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+      b.querySelector('span').textContent = on ? 'Voice on' : 'Voice off';
     }
 
     // ---------- UI ----------
@@ -169,6 +193,17 @@
         this.onStoryChange();
       };
       $('btnNext').onclick = () => { this.story.next(); };
+      if (!this.narrator.supported) $('btnVoice').hidden = true;
+      $('btnVoice').onclick = () => this.toggleVoice(!this.narrator.enabled);
+      this._voiceUI();
+      if (this.narrator.enabled) {
+        const kick = (e) => {
+          document.removeEventListener('pointerdown', kick, true);
+          if (e.target.closest && e.target.closest('#btnVoice')) return;
+          this.toggleVoice(true);
+        };
+        document.addEventListener('pointerdown', kick, true);
+      }
       $('btnPrev').onclick = () => { this.story.prev(); };
       const dots = $('chapterDots');
       this.story.chapters.forEach((c, i) => {
@@ -294,6 +329,8 @@
       $('modeStory').setAttribute('aria-selected', String(!explore));
       $('modeExplore').setAttribute('aria-selected', String(explore));
       if (explore) {
+        this.narrator.stop();
+        this.spoken = null;
         this.story.stop();
         this.insetStep = null;
         this.setSpeed(10);

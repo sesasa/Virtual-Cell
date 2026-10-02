@@ -110,6 +110,7 @@ class App3D {
     this.labelEls = [];
     this.insetCv = $('inset');
     this.insetG = this.insetCv.getContext('2d');
+    this.narrator = new VC.Narrator();
     this.tour = new Tour(this);
     this._ui();
     this.resize();
@@ -260,6 +261,26 @@ class App3D {
     $('btnPlay').textContent = tr.playing ? '❚❚' : '▶';
     [...$('chapterDots').children].forEach((b, i) => { b.classList.toggle('on', i === ci); b.classList.toggle('done', i < ci); });
     $('stopCount').textContent = `${tr.i + 1}/${tr.stops.length}`;
+    // Speak each stop once, when it begins.
+    const n = this.narrator;
+    if (n.enabled && tr.playing && this.spokenStop !== tr.i) { this.spokenStop = tr.i; n.say(tr.text()); }
+    else if (n.enabled && !tr.playing) n.pause();
+    else if (n.enabled && tr.playing) n.resume();
+  }
+
+  toggleVoice(on) {
+    const n = this.narrator;
+    n.blocked = false;
+    n.setEnabled(on);
+    const b = $('btnVoice');
+    b.classList.toggle('on', n.enabled);
+    b.setAttribute('aria-pressed', String(n.enabled));
+    b.querySelector('span').textContent = n.enabled ? 'Voice on' : 'Voice off';
+    if (n.enabled && this.tour.active) {
+      this.spokenStop = this.tour.i;
+      this.tour.t = 0;
+      n.say(this.tour.text());
+    }
   }
 
   // ---------------------------------------------------------------- UI
@@ -271,6 +292,24 @@ class App3D {
       this.onTourChange();
     };
     $('btnNext').onclick = () => this.tour.next();
+    if (!this.narrator.supported) $('btnVoice').hidden = true;
+    $('btnVoice').onclick = () => this.toggleVoice(!this.narrator.enabled);
+    {
+      const b = $('btnVoice'), on = this.narrator.enabled;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+      b.querySelector('span').textContent = on ? 'Voice on' : 'Voice off';
+    }
+    // Browsers only allow speech after a click: if voice was left on last time,
+    // start talking at the first interaction.
+    if (this.narrator.enabled) {
+      const kick = (e) => {
+        document.removeEventListener('pointerdown', kick, true);
+        if (e.target.closest && e.target.closest('#btnVoice')) return;
+        this.toggleVoice(true);
+      };
+      document.addEventListener('pointerdown', kick, true);
+    }
     $('btnPrev').onclick = () => this.tour.prev();
     this.tour.chapters.forEach((c) => {
       const b = document.createElement('button');
@@ -328,6 +367,7 @@ class App3D {
   }
 
   restart() {
+    this.spokenStop = null;
     this.model.reset();
     while (this.model.hour() < 4.9) this.model.advance(1 / 30);
     this.flows.clear();
@@ -340,6 +380,8 @@ class App3D {
     $('modeTour').classList.toggle('on', !explore);
     $('modeExplore').classList.toggle('on', explore);
     if (explore) {
+      this.narrator.stop();
+      this.spokenStop = null;
       this.tour.stopTour();
       this.labels = [];
       this.world.focus = null; this.flows.focus = null;

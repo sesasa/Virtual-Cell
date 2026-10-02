@@ -585,12 +585,16 @@
       }
       if (!this.playing) return;
       this.t += dt;
-      const minT = this.duration();
-      let ready = this.t >= minT;
+      const nar = this.app.narrator;
+      const voice = nar && nar.enabled && !nar.blocked;
+      // With a voice, a beat lasts as long as its speech.
+      const minT = voice ? 2.5 : this.duration();
+      const hold = voice && nar.holding() && this.t < this.duration() + 45;
+      let ready = this.t >= minT && !hold;
       if (b.until) {
         const ok = b.until(this.app.model);
-        ready = (ready && ok) || this.t > minT + (b.maxWait || 30);
-        if (ok && (this.t >= minT || b.untilNow)) ready = true;
+        ready = (ready && ok) || this.t > minT + (b.maxWait || 30) + (hold ? 30 : 0);
+        if (ok && ((this.t >= minT && !hold) || b.untilNow)) ready = true;
       }
       if (ready && !b.end) this.next();
       else if (ready && b.end && this.t > minT + 4) { this.playing = false; this.app.onStoryChange && this.app.onStoryChange(); }
