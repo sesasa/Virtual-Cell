@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Leaf Cell</title>
+<meta name="description" content="A narrated, simulated digital twin of a photosynthetic plant cell: organelles, transporters, metabolism, resource allocation and growth.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Virtual Leaf Cell</h1>
+        <p class="brand-sub">A photosynthetic plant cell, simulated from the molecules up</p>
+      </div>
+    </div>
+    <div class="status">
+      <div class="clock" id="clock" title="Simulated time of day"><span class="sky" id="sky" aria-hidden="true"></span><span id="clockText">Day 1 · 04:00</span></div>
+      <div class="chip" id="phaseChip" title="Cell-cycle phase">G1</div>
+      <div class="chip chip-soft" id="limChip" title="What limits photosynthesis right now">dark</div>
+    </div>
+    <div class="mode" role="tablist" aria-label="Mode">
+      <button id="modeStory" role="tab" aria-selected="true" class="on">Story</button>
+      <button id="modeExplore" role="tab" aria-selected="false">Explore</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="viewport" id="viewport">
+      <canvas id="cell" aria-label="Animated view of a plant cell"></canvas>
+
+      <div class="inset" id="insetBox" hidden>
+        <div class="inset-head">
+          <span class="inset-eyebrow">Molecular close-up</span>
+          <span class="inset-title" id="insetTitle"></span>
+          <button class="icon-btn" id="insetClose" aria-label="Close close-up">×</button>
+        </div>
+        <canvas id="inset" width="440" height="280"></canvas>
+      </div>
+
+      <div class="narration" id="narration">
+        <div class="narr-eyebrow"><span id="chapNum">Chapter 1</span><span class="dot-sep">·</span><span id="chapTitle">A cell in a leaf</span></div>
+        <p class="narr-text" id="narrText"></p>
+        <div class="narr-progress"><span id="narrBar"></span></div>
+        <div class="narr-controls">
+          <button class="ctl" id="btnPrev" aria-label="Previous">◀</button>
+          <button class="ctl ctl-main" id="btnPlay" aria-label="Pause story">❚❚</button>
+          <button class="ctl" id="btnNext" aria-label="Next">▶</button>
+          <div class="chapters" id="chapterDots" aria-label="Chapters"></div>
+        </div>
+      </div>
+
+      <div class="legend" id="legend" aria-label="Molecule flows"></div>
+
+      <div class="viewctl">
+        <button class="icon-btn" id="zoomIn" aria-label="Zoom in">+</button>
+        <button class="icon-btn" id="zoomOut" aria-label="Zoom out">−</button>
+        <button class="icon-btn" id="zoomFit" aria-label="Fit cell">⤢</button>
+        <button class="icon-btn on" id="labelsBtn" aria-label="Toggle labels">Aa</button>
+      </div>
+
+      <div class="toast" id="toast" hidden></div>
+      <div class="info" id="info" hidden></div>
+    </section>
+
+    <aside class="panel" id="panel">
+      <section class="block">
+        <h2>Vital signs</h2>
+        <div class="vitals" id="vitals"></div>
+        <div class="gauges">
+          <div class="gauge"><span>Chloroplast ATP</span><i><b id="gAtpS"></b></i></div>
+          <div class="gauge"><span>Chloroplast NADPH</span><i><b id="gNadph"></b></i></div>
+          <div class="gauge"><span>Cytosol ATP</span><i><b id="gAtpC"></b></i></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Environment</h2>
+        <div class="controls">
+          <label class="ctlrow"><span>Peak light</span><output id="vLight"></output><input type="range" id="sLight" min="0" max="2000" step="50" value="1100"></label>
+          <label class="ctlrow"><span>Day length</span><output id="vDay"></output><input type="range" id="sDay" min="8" max="18" step="1" value="14"></label>
+          <label class="ctlrow"><span>CO₂</span><output id="vCo2"></output><input type="range" id="sCo2" min="100" max="1200" step="10" value="420"></label>
+          <label class="ctlrow"><span>Temperature</span><output id="vTemp"></output><input type="range" id="sTemp" min="5" max="40" step="1" value="24"></label>
+          <label class="ctlrow"><span>Nitrate</span><output id="vNo3"></output><input type="range" id="sNo3" min="0" max="10" step="0.1" value="2"></label>
+          <label class="ctlrow"><span>Soil water</span><output id="vWater"></output><input type="range" id="sWater" min="-1.2" max="0" step="0.05" value="-0.15"></label>
+          <label class="check"><input type="checkbox" id="cConst"> Constant light (no night)</label>
+        </div>
+        <div class="speedrow">
+          <button class="ctl" id="btnPause" aria-label="Pause simulation">❚❚</button>
+          <label class="ctlrow grow"><span>Clock speed</span><output id="vSpeed"></output><input type="range" id="sSpeed" min="0" max="100" step="1" value="40"></label>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="btnReset">New cell</button>
+          <select id="insetPick" class="btn" aria-label="Show a molecular close-up">
+            <option value="">Close-up: none</option>
+            <option value="thylakoid">Light reactions</option>
+            <option value="calvin">Calvin–Benson cycle</option>
+            <option value="photoresp">Photorespiration</option>
+            <option value="allocation">Carbon budget</option>
+            <option value="mito">Respiration</option>
+            <option value="nitrogen">Nitrogen</option>
+            <option value="expression">Gene → protein</option>
+            <option value="growth">Turgor &amp; growth</option>
+            <option value="starch">Starch clock</option>
+            <option value="cycle">Cell cycle</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Cell diary</h2>
+        <ol class="diary" id="diary"></ol>
+      </section>
+
+      <section class="block about">
+        <h2>About this model</h2>
+        <p>Photosynthesis follows the Farquhar–von Caemmerer–Berry model; night-time starch use is paced by the clock; growth follows the Lockhart equation. Pools are in picomoles per cell. Organelle sizes are close to real; molecules are drawn as tokens, each standing for many molecules. Molecules move in real time while the clock runs faster.</p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/model.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/render.js"></script>
+<script src="js/insets.js"></script>
+<script src="js/story.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
