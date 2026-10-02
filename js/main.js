@@ -384,7 +384,7 @@
       if (this.diaryDirty) {
         this.diaryDirty = false;
         const ev = m.events.slice(-30).reverse();
-        $('diary').innerHTML = ev.map((e) => { const cc = U.fmtClock(e.t); return `<li class="${e.kind}"><time>D${cc.day} ${cc.text}</time><span>${e.text}</span></li>`; }).join('');
+        $('diary').innerHTML = ev.map((e) => { const cc = U.fmtClock(e.t); return `<li class="ev-${e.kind}"><time>D${cc.day} ${cc.text}</time><span>${e.text}</span></li>`; }).join('');
       }
     }
 
